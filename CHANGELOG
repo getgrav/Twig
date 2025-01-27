@@ -1,4 +1,7 @@
-**Twig 2 is not maintained anymore**
+# 2.17beta (2025-01-27)
+
+ * PHP 8.2 optimizations
+ * PHP 8.4 compatibility for "implicitly marking parameter as nullable" deprecation
 
 # 2.16.1 (2024-09-09)
 
