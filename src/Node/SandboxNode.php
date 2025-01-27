@@ -20,7 +20,7 @@ use Twig\Compiler;
  */
 class SandboxNode extends Node
 {
-    public function __construct(Node $body, int $lineno, string $tag = null)
+    public function __construct(Node $body, int $lineno, ?string $tag = null)
     {
         parent::__construct(['body' => $body], [], $lineno, $tag);
     }
@@ -51,4 +51,4 @@ class SandboxNode extends Node
     }
 }
 
-class_alias('Twig\Node\SandboxNode', 'Twig_Node_Sandbox');
+class_alias(\Twig\Node\SandboxNode::class, 'Twig_Node_Sandbox');

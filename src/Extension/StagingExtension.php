@@ -99,4 +99,4 @@ final class StagingExtension extends AbstractExtension
     }
 }
 
-class_alias('Twig\Extension\StagingExtension', 'Twig_Extension_Staging');
+class_alias(\Twig\Extension\StagingExtension::class, 'Twig_Extension_Staging');

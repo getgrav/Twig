@@ -33,4 +33,4 @@ interface InitRuntimeInterface
     public function initRuntime(Environment $environment);
 }
 
-class_alias('Twig\Extension\InitRuntimeInterface', 'Twig_Extension_InitRuntimeInterface');
+class_alias(\Twig\Extension\InitRuntimeInterface::class, 'Twig_Extension_InitRuntimeInterface');

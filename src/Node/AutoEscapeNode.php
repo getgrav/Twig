@@ -37,4 +37,4 @@ class AutoEscapeNode extends Node
     }
 }
 
-class_alias('Twig\Node\AutoEscapeNode', 'Twig_Node_AutoEscape');
+class_alias(\Twig\Node\AutoEscapeNode::class, 'Twig_Node_AutoEscape');

@@ -39,8 +39,8 @@ class TwigFilter
      */
     public function __construct(string $name, $callable = null, array $options = [])
     {
-        if (__CLASS__ !== static::class) {
-            @trigger_error('Overriding '.__CLASS__.' is deprecated since Twig 2.4.0 and the class will be final in 3.0.', \E_USER_DEPRECATED);
+        if (self::class !== static::class) {
+            @trigger_error('Overriding '.self::class.' is deprecated since Twig 2.4.0 and the class will be final in 3.0.', \E_USER_DEPRECATED);
         }
 
         $this->name = $name;
@@ -142,9 +142,9 @@ class TwigFilter
 }
 
 // For Twig 1.x compatibility
-class_alias('Twig\TwigFilter', 'Twig_SimpleFilter', false);
+class_alias(\Twig\TwigFilter::class, 'Twig_SimpleFilter', false);
 
-class_alias('Twig\TwigFilter', 'Twig_Filter');
+class_alias(\Twig\TwigFilter::class, 'Twig_Filter');
 
 // Ensure that the aliased name is loaded to keep BC for classes implementing the typehint with the old aliased name.
-class_exists('Twig\Node\Node');
+class_exists(\Twig\Node\Node::class);

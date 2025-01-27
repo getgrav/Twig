@@ -20,4 +20,4 @@ interface NodeCaptureInterface
 {
 }
 
-class_alias('Twig\Node\NodeCaptureInterface', 'Twig_NodeCaptureInterface');
+class_alias(\Twig\Node\NodeCaptureInterface::class, 'Twig_NodeCaptureInterface');

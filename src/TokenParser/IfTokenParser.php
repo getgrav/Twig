@@ -86,4 +86,4 @@ final class IfTokenParser extends AbstractTokenParser
     }
 }
 
-class_alias('Twig\TokenParser\IfTokenParser', 'Twig_TokenParser_If');
+class_alias(\Twig\TokenParser\IfTokenParser::class, 'Twig_TokenParser_If');

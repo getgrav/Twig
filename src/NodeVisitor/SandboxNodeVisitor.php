@@ -134,4 +134,4 @@ final class SandboxNodeVisitor extends AbstractNodeVisitor
     }
 }
 
-class_alias('Twig\NodeVisitor\SandboxNodeVisitor', 'Twig_NodeVisitor_Sandbox');
+class_alias(\Twig\NodeVisitor\SandboxNodeVisitor::class, 'Twig_NodeVisitor_Sandbox');

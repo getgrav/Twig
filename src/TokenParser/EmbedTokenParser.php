@@ -27,7 +27,7 @@ final class EmbedTokenParser extends IncludeTokenParser
 
         $parent = $this->parser->getExpressionParser()->parseExpression();
 
-        list($variables, $only, $ignoreMissing) = $this->parseArguments();
+        [$variables, $only, $ignoreMissing] = $this->parseArguments();
 
         $parentToken = $fakeParentToken = new Token(/* Token::STRING_TYPE */ 7, '__parent__', $token->getLine());
         if ($parent instanceof ConstantExpression) {
@@ -69,4 +69,4 @@ final class EmbedTokenParser extends IncludeTokenParser
     }
 }
 
-class_alias('Twig\TokenParser\EmbedTokenParser', 'Twig_TokenParser_Embed');
+class_alias(\Twig\TokenParser\EmbedTokenParser::class, 'Twig_TokenParser_Embed');

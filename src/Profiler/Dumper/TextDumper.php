@@ -34,4 +34,4 @@ final class TextDumper extends BaseDumper
     }
 }
 
-class_alias('Twig\Profiler\Dumper\TextDumper', 'Twig_Profiler_Dumper_Text');
+class_alias(\Twig\Profiler\Dumper\TextDumper::class, 'Twig_Profiler_Dumper_Text');

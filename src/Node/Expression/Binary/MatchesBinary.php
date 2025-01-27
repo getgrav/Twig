@@ -32,4 +32,4 @@ class MatchesBinary extends AbstractBinary
     }
 }
 
-class_alias('Twig\Node\Expression\Binary\MatchesBinary', 'Twig_Node_Expression_Binary_Matches');
+class_alias(\Twig\Node\Expression\Binary\MatchesBinary::class, 'Twig_Node_Expression_Binary_Matches');

@@ -21,4 +21,4 @@ class RuntimeError extends Error
 {
 }
 
-class_alias('Twig\Error\RuntimeError', 'Twig_Error_Runtime');
+class_alias(\Twig\Error\RuntimeError::class, 'Twig_Error_Runtime');

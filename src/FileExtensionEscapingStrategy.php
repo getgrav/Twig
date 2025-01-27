@@ -59,4 +59,4 @@ class FileExtensionEscapingStrategy
     }
 }
 
-class_alias('Twig\FileExtensionEscapingStrategy', 'Twig_FileExtensionEscapingStrategy');
+class_alias(\Twig\FileExtensionEscapingStrategy::class, 'Twig_FileExtensionEscapingStrategy');

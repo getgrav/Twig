@@ -42,7 +42,7 @@ final class TemplateWrapper
     {
         // using func_get_args() allows to not expose the blocks argument
         // as it should only be used by internal code
-        return $this->template->render($context, \func_get_args()[1] ?? []);
+        return $this->template->render($context);
     }
 
     /**
@@ -142,4 +142,4 @@ final class TemplateWrapper
     }
 }
 
-class_alias('Twig\TemplateWrapper', 'Twig_TemplateWrapper');
+class_alias(\Twig\TemplateWrapper::class, 'Twig_TemplateWrapper');

@@ -50,4 +50,4 @@ final class Source
     }
 }
 
-class_alias('Twig\Source', 'Twig_Source');
+class_alias(\Twig\Source::class, 'Twig_Source');

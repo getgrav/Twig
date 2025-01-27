@@ -134,7 +134,7 @@ final class EscaperExtension extends AbstractExtension
     }
 }
 
-class_alias('Twig\Extension\EscaperExtension', 'Twig_Extension_Escaper');
+class_alias(\Twig\Extension\EscaperExtension::class, 'Twig_Extension_Escaper');
 }
 
 namespace {
@@ -368,11 +368,7 @@ function twig_escape_filter(Environment $env, $string, $strategy = 'html', $char
                         62 => '&gt;',   /* greater-than sign */
                     ];
 
-                    if (isset($entityMap[$ord])) {
-                        return $entityMap[$ord];
-                    }
-
-                    return sprintf('&#x%02X;', $ord);
+                    return $entityMap[$ord] ?? sprintf('&#x%02X;', $ord);
                 }
 
                 /*

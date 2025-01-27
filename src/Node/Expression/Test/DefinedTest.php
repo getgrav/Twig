@@ -73,4 +73,4 @@ class DefinedTest extends TestExpression
     }
 }
 
-class_alias('Twig\Node\Expression\Test\DefinedTest', 'Twig_Node_Expression_Test_Defined');
+class_alias(\Twig\Node\Expression\Test\DefinedTest::class, 'Twig_Node_Expression_Test_Defined');

@@ -69,4 +69,4 @@ final class ProfilerNodeVisitor extends AbstractNodeVisitor
     }
 }
 
-class_alias('Twig\Profiler\NodeVisitor\ProfilerNodeVisitor', 'Twig_Profiler_NodeVisitor_Profiler');
+class_alias(\Twig\Profiler\NodeVisitor\ProfilerNodeVisitor::class, 'Twig_Profiler_NodeVisitor_Profiler');

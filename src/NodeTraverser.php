@@ -82,4 +82,4 @@ final class NodeTraverser
     }
 }
 
-class_alias('Twig\NodeTraverser', 'Twig_NodeTraverser');
+class_alias(\Twig\NodeTraverser::class, 'Twig_NodeTraverser');

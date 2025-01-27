@@ -75,4 +75,4 @@ final class BlockTokenParser extends AbstractTokenParser
     }
 }
 
-class_alias('Twig\TokenParser\BlockTokenParser', 'Twig_TokenParser_Block');
+class_alias(\Twig\TokenParser\BlockTokenParser::class, 'Twig_TokenParser_Block');

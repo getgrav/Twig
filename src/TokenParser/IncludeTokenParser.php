@@ -28,7 +28,7 @@ class IncludeTokenParser extends AbstractTokenParser
     {
         $expr = $this->parser->getExpressionParser()->parseExpression();
 
-        list($variables, $only, $ignoreMissing) = $this->parseArguments();
+        [$variables, $only, $ignoreMissing] = $this->parseArguments();
 
         return new IncludeNode($expr, $variables, $only, $ignoreMissing, $token->getLine(), $this->getTag());
     }
@@ -65,4 +65,4 @@ class IncludeTokenParser extends AbstractTokenParser
     }
 }
 
-class_alias('Twig\TokenParser\IncludeTokenParser', 'Twig_TokenParser_Include');
+class_alias(\Twig\TokenParser\IncludeTokenParser::class, 'Twig_TokenParser_Include');

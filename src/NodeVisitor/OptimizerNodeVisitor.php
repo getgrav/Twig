@@ -216,4 +216,4 @@ final class OptimizerNodeVisitor extends AbstractNodeVisitor
     }
 }
 
-class_alias('Twig\NodeVisitor\OptimizerNodeVisitor', 'Twig_NodeVisitor_Optimizer');
+class_alias(\Twig\NodeVisitor\OptimizerNodeVisitor::class, 'Twig_NodeVisitor_Optimizer');

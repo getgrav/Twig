@@ -33,4 +33,4 @@ abstract class AbstractUnary extends AbstractExpression
     abstract public function operator(Compiler $compiler);
 }
 
-class_alias('Twig\Node\Expression\Unary\AbstractUnary', 'Twig_Node_Expression_Unary');
+class_alias(\Twig\Node\Expression\Unary\AbstractUnary::class, 'Twig_Node_Expression_Unary');

@@ -22,4 +22,4 @@ class OrBinary extends AbstractBinary
     }
 }
 
-class_alias('Twig\Node\Expression\Binary\OrBinary', 'Twig_Node_Expression_Binary_Or');
+class_alias(\Twig\Node\Expression\Binary\OrBinary::class, 'Twig_Node_Expression_Binary_Or');

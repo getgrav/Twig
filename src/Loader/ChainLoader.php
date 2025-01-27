@@ -117,4 +117,4 @@ final class ChainLoader implements LoaderInterface, ExistsLoaderInterface, Sourc
     }
 }
 
-class_alias('Twig\Loader\ChainLoader', 'Twig_Loader_Chain');
+class_alias(\Twig\Loader\ChainLoader::class, 'Twig_Loader_Chain');

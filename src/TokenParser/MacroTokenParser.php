@@ -63,4 +63,4 @@ final class MacroTokenParser extends AbstractTokenParser
     }
 }
 
-class_alias('Twig\TokenParser\MacroTokenParser', 'Twig_TokenParser_Macro');
+class_alias(\Twig\TokenParser\MacroTokenParser::class, 'Twig_TokenParser_Macro');

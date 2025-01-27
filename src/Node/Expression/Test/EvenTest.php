@@ -34,4 +34,4 @@ class EvenTest extends TestExpression
     }
 }
 
-class_alias('Twig\Node\Expression\Test\EvenTest', 'Twig_Node_Expression_Test_Even');
+class_alias(\Twig\Node\Expression\Test\EvenTest::class, 'Twig_Node_Expression_Test_Even');

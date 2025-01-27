@@ -21,4 +21,4 @@ class GreaterBinary extends AbstractBinary
     }
 }
 
-class_alias('Twig\Node\Expression\Binary\GreaterBinary', 'Twig_Node_Expression_Binary_Greater');
+class_alias(\Twig\Node\Expression\Binary\GreaterBinary::class, 'Twig_Node_Expression_Binary_Greater');

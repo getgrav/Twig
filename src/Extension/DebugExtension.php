@@ -32,7 +32,7 @@ final class DebugExtension extends AbstractExtension
     }
 }
 
-class_alias('Twig\Extension\DebugExtension', 'Twig_Extension_Debug');
+class_alias(\Twig\Extension\DebugExtension::class, 'Twig_Extension_Debug');
 }
 
 namespace {

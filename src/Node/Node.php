@@ -36,7 +36,7 @@ class Node implements \Countable, \IteratorAggregate
      * @param int    $lineno     The line number
      * @param string $tag        The tag name associated with the Node
      */
-    public function __construct(array $nodes = [], array $attributes = [], int $lineno = 0, string $tag = null)
+    public function __construct(array $nodes = [], array $attributes = [], int $lineno = 0, ?string $tag = null)
     {
         foreach ($nodes as $name => $node) {
             if (!$node instanceof self) {
@@ -213,7 +213,7 @@ class Node implements \Countable, \IteratorAggregate
     }
 }
 
-class_alias('Twig\Node\Node', 'Twig_Node');
+class_alias(\Twig\Node\Node::class, 'Twig_Node');
 
 // Ensure that the aliased name is loaded to keep BC for classes implementing the typehint with the old aliased name.
-class_exists('Twig\Compiler');
+class_exists(\Twig\Compiler::class);

@@ -20,4 +20,4 @@ interface NodeOutputInterface
 {
 }
 
-class_alias('Twig\Node\NodeOutputInterface', 'Twig_NodeOutputInterface');
+class_alias(\Twig\Node\NodeOutputInterface::class, 'Twig_NodeOutputInterface');

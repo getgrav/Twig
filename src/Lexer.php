@@ -212,7 +212,7 @@ class Lexer
         $this->pushToken(/* Token::EOF_TYPE */ -1);
 
         if (!empty($this->brackets)) {
-            list($expect, $lineno) = array_pop($this->brackets);
+            [$expect, $lineno] = array_pop($this->brackets);
             throw new SyntaxError(sprintf('Unclosed "%s".', $expect), $lineno, $this->source);
         }
 
@@ -353,7 +353,7 @@ class Lexer
                     throw new SyntaxError(sprintf('Unexpected "%s".', $this->code[$this->cursor]), $this->lineno, $this->source);
                 }
 
-                list($expect, $lineno) = array_pop($this->brackets);
+                [$expect, $lineno] = array_pop($this->brackets);
                 if ($this->code[$this->cursor] != strtr($expect, '([{', ')]}')) {
                     throw new SyntaxError(sprintf('Unclosed "%s".', $expect), $lineno, $this->source);
                 }
@@ -423,7 +423,7 @@ class Lexer
             $this->pushToken(/* Token::STRING_TYPE */ 7, stripcslashes($match[0]));
             $this->moveCursor($match[0]);
         } elseif (preg_match(self::REGEX_DQ_STRING_DELIM, $this->code, $match, 0, $this->cursor)) {
-            list($expect, $lineno) = array_pop($this->brackets);
+            [$expect, $lineno] = array_pop($this->brackets);
             if ('"' != $this->code[$this->cursor]) {
                 throw new SyntaxError(sprintf('Unclosed "%s".', $expect), $lineno, $this->source);
             }
@@ -515,4 +515,4 @@ class Lexer
     }
 }
 
-class_alias('Twig\Lexer', 'Twig_Lexer');
+class_alias(\Twig\Lexer::class, 'Twig_Lexer');

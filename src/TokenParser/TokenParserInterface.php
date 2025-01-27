@@ -45,8 +45,8 @@ interface TokenParserInterface
     public function getTag();
 }
 
-class_alias('Twig\TokenParser\TokenParserInterface', 'Twig_TokenParserInterface');
+class_alias(\Twig\TokenParser\TokenParserInterface::class, 'Twig_TokenParserInterface');
 
 // Ensure that the aliased name is loaded to keep BC for classes implementing the typehint with the old aliased name.
-class_exists('Twig\Token');
-class_exists('Twig\Parser');
+class_exists(\Twig\Token::class);
+class_exists(\Twig\Parser::class);

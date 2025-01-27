@@ -88,4 +88,4 @@ class CheckSecurityNode extends Node
     }
 }
 
-class_alias('Twig\Node\CheckSecurityNode', 'Twig_Node_CheckSecurity');
+class_alias(\Twig\Node\CheckSecurityNode::class, 'Twig_Node_CheckSecurity');

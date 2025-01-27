@@ -35,4 +35,4 @@ class TemplateDirIterator extends \IteratorIterator
     }
 }
 
-class_alias('Twig\Util\TemplateDirIterator', 'Twig_Util_TemplateDirIterator');
+class_alias(\Twig\Util\TemplateDirIterator::class, 'Twig_Util_TemplateDirIterator');

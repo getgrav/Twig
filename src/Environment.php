@@ -118,7 +118,7 @@ class Environment
         $this->setCharset($options['charset']);
         $this->baseTemplateClass = '\\'.ltrim($options['base_template_class'], '\\');
         if ('\\'.Template::class !== $this->baseTemplateClass && '\Twig_Template' !== $this->baseTemplateClass) {
-            @trigger_error('The "base_template_class" option on '.__CLASS__.' is deprecated since Twig 2.7.0.', \E_USER_DEPRECATED);
+            @trigger_error('The "base_template_class" option on '.self::class.' is deprecated since Twig 2.7.0.', \E_USER_DEPRECATED);
         }
         $this->autoReload = null === $options['auto_reload'] ? $this->debug : (bool) $options['auto_reload'];
         $this->strictVariables = (bool) $options['strict_variables'];
@@ -443,7 +443,7 @@ class Environment
      * @throws LoaderError When the template cannot be found
      * @throws SyntaxError When an error occurred during compilation
      */
-    public function createTemplate($template, string $name = null)
+    public function createTemplate($template, ?string $name = null)
     {
         $hash = hash(\PHP_VERSION_ID < 80100 ? 'sha256' : 'xxh128', $template, false);
         if (null !== $name) {
@@ -991,4 +991,4 @@ class Environment
     }
 }
 
-class_alias('Twig\Environment', 'Twig_Environment');
+class_alias(\Twig\Environment::class, 'Twig_Environment');

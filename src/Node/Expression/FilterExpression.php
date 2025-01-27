@@ -17,7 +17,7 @@ use Twig\Node\Node;
 
 class FilterExpression extends CallExpression
 {
-    public function __construct(Node $node, ConstantExpression $filterName, Node $arguments, int $lineno, string $tag = null)
+    public function __construct(Node $node, ConstantExpression $filterName, Node $arguments, int $lineno, ?string $tag = null)
     {
         parent::__construct(['node' => $node, 'filter' => $filterName, 'arguments' => $arguments], [], $lineno, $tag);
     }
@@ -39,4 +39,4 @@ class FilterExpression extends CallExpression
     }
 }
 
-class_alias('Twig\Node\Expression\FilterExpression', 'Twig_Node_Expression_Filter');
+class_alias(\Twig\Node\Expression\FilterExpression::class, 'Twig_Node_Expression_Filter');

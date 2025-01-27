@@ -337,7 +337,7 @@ final class CoreExtension extends AbstractExtension
     }
 }
 
-class_alias('Twig\Extension\CoreExtension', 'Twig_Extension_Core');
+class_alias(\Twig\Extension\CoreExtension::class, 'Twig_Extension_Core');
 }
 
 namespace {
@@ -688,7 +688,7 @@ function twig_slice(Environment $env, $item, $start, $length = null, $preserveKe
 
         if ($start >= 0 && $length >= 0 && $item instanceof \Iterator) {
             try {
-                return iterator_to_array(new \LimitIterator($item, $start, null === $length ? -1 : $length), $preserveKeys);
+                return iterator_to_array(new \LimitIterator($item, $start, $length ?? -1), $preserveKeys);
             } catch (\OutOfBoundsException $e) {
                 return [];
             }
@@ -1174,7 +1174,7 @@ function twig_call_macro(Template $template, string $method, array $args, int $l
  */
 function twig_ensure_traversable($seq)
 {
-    if ($seq instanceof \Traversable || \is_array($seq)) {
+    if (is_iterable($seq)) {
         return $seq;
     }
 
@@ -1240,7 +1240,7 @@ function twig_test_empty($value)
  */
 function twig_test_iterable($value)
 {
-    return $value instanceof \Traversable || \is_array($value);
+    return is_iterable($value);
 }
 
 /**
@@ -1648,7 +1648,7 @@ function twig_array_reduce(Environment $env, $array, $arrow, $initial = null)
 
 function twig_check_arrow_in_sandbox(Environment $env, $arrow, $thing, $type)
 {
-    if (!$arrow instanceof Closure && $env->hasExtension('\Twig\Extension\SandboxExtension') && $env->getExtension('\Twig\Extension\SandboxExtension')->isSandboxed()) {
+    if (!$arrow instanceof Closure && $env->hasExtension(\Twig\Extension\SandboxExtension::class) && $env->getExtension(\Twig\Extension\SandboxExtension::class)->isSandboxed()) {
         throw new RuntimeError(sprintf('The callable passed to the "%s" %s must be a Closure in sandbox mode.', $thing, $type));
     }
 }

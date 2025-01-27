@@ -35,4 +35,4 @@ class ConditionalExpression extends AbstractExpression
     }
 }
 
-class_alias('Twig\Node\Expression\ConditionalExpression', 'Twig_Node_Expression_Conditional');
+class_alias(\Twig\Node\Expression\ConditionalExpression::class, 'Twig_Node_Expression_Conditional');

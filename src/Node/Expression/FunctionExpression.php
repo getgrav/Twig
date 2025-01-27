@@ -42,4 +42,4 @@ class FunctionExpression extends CallExpression
     }
 }
 
-class_alias('Twig\Node\Expression\FunctionExpression', 'Twig_Node_Expression_Function');
+class_alias(\Twig\Node\Expression\FunctionExpression::class, 'Twig_Node_Expression_Function');

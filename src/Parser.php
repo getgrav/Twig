@@ -206,7 +206,7 @@ class Parser
 
     public function peekBlockStack()
     {
-        return isset($this->blockStack[\count($this->blockStack) - 1]) ? $this->blockStack[\count($this->blockStack) - 1] : null;
+        return $this->blockStack[\count($this->blockStack) - 1] ?? null;
     }
 
     public function popBlockStack()
@@ -271,7 +271,7 @@ class Parser
         $this->embeddedTemplates[] = $template;
     }
 
-    public function addImportedSymbol($type, $alias, $name = null, AbstractExpression $node = null)
+    public function addImportedSymbol($type, $alias, $name = null, ?AbstractExpression $node = null)
     {
         $this->importedSymbols[0][$type][$alias] = ['name' => $name, 'node' => $node];
     }
@@ -390,4 +390,4 @@ class Parser
     }
 }
 
-class_alias('Twig\Parser', 'Twig_Parser');
+class_alias(\Twig\Parser::class, 'Twig_Parser');

@@ -472,4 +472,4 @@ final class ExtensionSet
     }
 }
 
-class_alias('Twig\ExtensionSet', 'Twig_ExtensionSet');
+class_alias(\Twig\ExtensionSet::class, 'Twig_ExtensionSet');

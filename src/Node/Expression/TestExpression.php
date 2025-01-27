@@ -41,4 +41,4 @@ class TestExpression extends CallExpression
     }
 }
 
-class_alias('Twig\Node\Expression\TestExpression', 'Twig_Node_Expression_Test');
+class_alias(\Twig\Node\Expression\TestExpression::class, 'Twig_Node_Expression_Test');

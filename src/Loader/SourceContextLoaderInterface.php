@@ -18,4 +18,4 @@ interface SourceContextLoaderInterface extends LoaderInterface
 {
 }
 
-class_alias('Twig\Loader\SourceContextLoaderInterface', 'Twig_SourceContextLoaderInterface');
+class_alias(\Twig\Loader\SourceContextLoaderInterface::class, 'Twig_SourceContextLoaderInterface');

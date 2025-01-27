@@ -22,4 +22,4 @@ class BitwiseAndBinary extends AbstractBinary
     }
 }
 
-class_alias('Twig\Node\Expression\Binary\BitwiseAndBinary', 'Twig_Node_Expression_Binary_BitwiseAnd');
+class_alias(\Twig\Node\Expression\Binary\BitwiseAndBinary::class, 'Twig_Node_Expression_Binary_BitwiseAnd');

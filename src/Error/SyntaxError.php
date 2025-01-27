@@ -45,4 +45,4 @@ class SyntaxError extends Error
     }
 }
 
-class_alias('Twig\Error\SyntaxError', 'Twig_Error_Syntax');
+class_alias(\Twig\Error\SyntaxError::class, 'Twig_Error_Syntax');

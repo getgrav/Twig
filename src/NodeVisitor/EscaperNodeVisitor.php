@@ -55,7 +55,7 @@ final class EscaperNodeVisitor extends AbstractNodeVisitor
         } elseif ($node instanceof AutoEscapeNode) {
             $this->statusStack[] = $node->getAttribute('value');
         } elseif ($node instanceof BlockNode) {
-            $this->statusStack[] = isset($this->blocks[$node->getAttribute('name')]) ? $this->blocks[$node->getAttribute('name')] : $this->needEscaping($env);
+            $this->statusStack[] = $this->blocks[$node->getAttribute('name')] ?? $this->needEscaping($env);
         } elseif ($node instanceof ImportNode) {
             $this->safeVars[] = $node->getNode('var')->getAttribute('name');
         }
@@ -187,7 +187,7 @@ final class EscaperNodeVisitor extends AbstractNodeVisitor
             return $this->statusStack[\count($this->statusStack) - 1];
         }
 
-        return $this->defaultStrategy ? $this->defaultStrategy : false;
+        return $this->defaultStrategy ?: false;
     }
 
     private function getEscaperFilter(string $type, Node $node): FilterExpression
@@ -205,4 +205,4 @@ final class EscaperNodeVisitor extends AbstractNodeVisitor
     }
 }
 
-class_alias('Twig\NodeVisitor\EscaperNodeVisitor', 'Twig_NodeVisitor_Escaper');
+class_alias(\Twig\NodeVisitor\EscaperNodeVisitor::class, 'Twig_NodeVisitor_Escaper');

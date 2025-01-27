@@ -34,9 +34,9 @@ class FilesystemLoader implements LoaderInterface, ExistsLoaderInterface, Source
      * @param string|array $paths    A path or an array of paths where to look for templates
      * @param string|null  $rootPath The root path common to all relative paths (null for getcwd())
      */
-    public function __construct($paths = [], string $rootPath = null)
+    public function __construct($paths = [], ?string $rootPath = null)
     {
-        $this->rootPath = (null === $rootPath ? getcwd() : $rootPath).\DIRECTORY_SEPARATOR;
+        $this->rootPath = ($rootPath ?? getcwd()).\DIRECTORY_SEPARATOR;
         if (null !== $rootPath && false !== ($realPath = realpath($rootPath))) {
             $this->rootPath = $realPath.\DIRECTORY_SEPARATOR;
         }
@@ -55,7 +55,7 @@ class FilesystemLoader implements LoaderInterface, ExistsLoaderInterface, Source
      */
     public function getPaths($namespace = self::MAIN_NAMESPACE)
     {
-        return isset($this->paths[$namespace]) ? $this->paths[$namespace] : [];
+        return $this->paths[$namespace] ?? [];
     }
 
     /**
@@ -206,7 +206,7 @@ class FilesystemLoader implements LoaderInterface, ExistsLoaderInterface, Source
         }
 
         try {
-            list($namespace, $shortname) = $this->parseName($name);
+            [$namespace, $shortname] = $this->parseName($name);
 
             $this->validateName($shortname);
         } catch (LoaderError $e) {
@@ -305,4 +305,4 @@ class FilesystemLoader implements LoaderInterface, ExistsLoaderInterface, Source
     }
 }
 
-class_alias('Twig\Loader\FilesystemLoader', 'Twig_Loader_Filesystem');
+class_alias(\Twig\Loader\FilesystemLoader::class, 'Twig_Loader_Filesystem');

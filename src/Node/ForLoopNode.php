@@ -20,7 +20,7 @@ use Twig\Compiler;
  */
 class ForLoopNode extends Node
 {
-    public function __construct(int $lineno, string $tag = null)
+    public function __construct(int $lineno, ?string $tag = null)
     {
         parent::__construct([], ['with_loop' => false, 'ifexpr' => false, 'else' => false], $lineno, $tag);
     }
@@ -53,4 +53,4 @@ class ForLoopNode extends Node
     }
 }
 
-class_alias('Twig\Node\ForLoopNode', 'Twig_Node_ForLoop');
+class_alias(\Twig\Node\ForLoopNode::class, 'Twig_Node_ForLoop');

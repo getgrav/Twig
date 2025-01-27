@@ -55,14 +55,14 @@ class Error extends \Exception
      * @param Source|string|null $source   The source context where the error occurred
      * @param \Exception         $previous The previous exception
      */
-    public function __construct(string $message, int $lineno = -1, $source = null, \Exception $previous = null)
+    public function __construct(string $message, int $lineno = -1, $source = null, ?\Exception $previous = null)
     {
         parent::__construct('', 0, $previous);
 
         if (null === $source) {
             $name = null;
         } elseif (!$source instanceof Source && !$source instanceof \Twig_Source) {
-            @trigger_error(sprintf('Passing a string as a source to %s is deprecated since Twig 2.6.1; pass a Twig\Source instance instead.', __CLASS__), \E_USER_DEPRECATED);
+            @trigger_error(sprintf('Passing a string as a source to %s is deprecated since Twig 2.6.1; pass a Twig\Source instance instead.', self::class), \E_USER_DEPRECATED);
             $name = $source;
         } else {
             $name = $source->getName();
@@ -121,7 +121,7 @@ class Error extends \Exception
     /**
      * Sets the source context of the Twig template where the error occurred.
      */
-    public function setSourceContext(Source $source = null)
+    public function setSourceContext(?Source $source = null)
     {
         if (null === $source) {
             $this->sourceCode = $this->name = $this->sourcePath = null;
@@ -198,7 +198,7 @@ class Error extends \Exception
 
         $backtrace = debug_backtrace(\DEBUG_BACKTRACE_IGNORE_ARGS | \DEBUG_BACKTRACE_PROVIDE_OBJECT);
         foreach ($backtrace as $trace) {
-            if (isset($trace['object']) && $trace['object'] instanceof Template && 'Twig\Template' !== \get_class($trace['object'])) {
+            if (isset($trace['object']) && $trace['object'] instanceof Template && \Twig\Template::class !== \get_class($trace['object'])) {
                 $currentClass = \get_class($trace['object']);
                 $isEmbedContainer = null === $templateClass ? false : 0 === strpos($templateClass, $currentClass);
                 if (null === $this->name || ($this->name == $trace['object']->getTemplateName() && !$isEmbedContainer)) {
@@ -254,4 +254,4 @@ class Error extends \Exception
     }
 }
 
-class_alias('Twig\Error\Error', 'Twig_Error');
+class_alias(\Twig\Error\Error::class, 'Twig_Error');

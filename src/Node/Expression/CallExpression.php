@@ -140,7 +140,7 @@ abstract class CallExpression extends AbstractExpression
             throw new \LogicException($message);
         }
 
-        list($callableParameters, $isPhpVariadic) = $this->getCallableParameters($callable, $isVariadic);
+        [$callableParameters, $isPhpVariadic] = $this->getCallableParameters($callable, $isVariadic);
         $arguments = [];
         $names = [];
         $missingArguments = [];
@@ -320,4 +320,4 @@ abstract class CallExpression extends AbstractExpression
     }
 }
 
-class_alias('Twig\Node\Expression\CallExpression', 'Twig_Node_Expression_Call');
+class_alias(\Twig\Node\Expression\CallExpression::class, 'Twig_Node_Expression_Call');

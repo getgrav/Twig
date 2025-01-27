@@ -20,4 +20,4 @@ class LoaderError extends Error
 {
 }
 
-class_alias('Twig\Error\LoaderError', 'Twig_Error_Loader');
+class_alias(\Twig\Error\LoaderError::class, 'Twig_Error_Loader');

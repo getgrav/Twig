@@ -83,4 +83,4 @@ final class ArrayLoader implements LoaderInterface, ExistsLoaderInterface, Sourc
     }
 }
 
-class_alias('Twig\Loader\ArrayLoader', 'Twig_Loader_Array');
+class_alias(\Twig\Loader\ArrayLoader::class, 'Twig_Loader_Array');

@@ -134,7 +134,7 @@ final class SafeAnalysisNodeVisitor extends AbstractNodeVisitor
         return $node;
     }
 
-    private function intersectSafe(array $a = null, array $b = null): array
+    private function intersectSafe(?array $a = null, ?array $b = null): array
     {
         if (null === $a || null === $b) {
             return [];
@@ -157,4 +157,4 @@ final class SafeAnalysisNodeVisitor extends AbstractNodeVisitor
     }
 }
 
-class_alias('Twig\NodeVisitor\SafeAnalysisNodeVisitor', 'Twig_NodeVisitor_SafeAnalysis');
+class_alias(\Twig\NodeVisitor\SafeAnalysisNodeVisitor::class, 'Twig_NodeVisitor_SafeAnalysis');

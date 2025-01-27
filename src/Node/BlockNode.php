@@ -21,7 +21,7 @@ use Twig\Compiler;
  */
 class BlockNode extends Node
 {
-    public function __construct(string $name, Node $body, int $lineno, string $tag = null)
+    public function __construct(string $name, Node $body, int $lineno, ?string $tag = null)
     {
         parent::__construct(['body' => $body], ['name' => $name], $lineno, $tag);
     }
@@ -43,4 +43,4 @@ class BlockNode extends Node
     }
 }
 
-class_alias('Twig\Node\BlockNode', 'Twig_Node_Block');
+class_alias(\Twig\Node\BlockNode::class, 'Twig_Node_Block');

@@ -37,7 +37,7 @@ final class HtmlDumper extends BaseDumper
 
     protected function formatNonTemplate(Profile $profile, $prefix)
     {
-        return sprintf('%s└ %s::%s(<span style="background-color: %s">%s</span>)', $prefix, $profile->getTemplate(), $profile->getType(), isset(self::$colors[$profile->getType()]) ? self::$colors[$profile->getType()] : 'auto', $profile->getName());
+        return sprintf('%s└ %s::%s(<span style="background-color: %s">%s</span>)', $prefix, $profile->getTemplate(), $profile->getType(), self::$colors[$profile->getType()] ?? 'auto', $profile->getName());
     }
 
     protected function formatTime(Profile $profile, $percent)
@@ -46,4 +46,4 @@ final class HtmlDumper extends BaseDumper
     }
 }
 
-class_alias('Twig\Profiler\Dumper\HtmlDumper', 'Twig_Profiler_Dumper_Html');
+class_alias(\Twig\Profiler\Dumper\HtmlDumper::class, 'Twig_Profiler_Dumper_Html');

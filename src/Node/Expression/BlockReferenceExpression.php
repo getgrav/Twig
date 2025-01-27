@@ -22,7 +22,7 @@ use Twig\Node\Node;
  */
 class BlockReferenceExpression extends AbstractExpression
 {
-    public function __construct(Node $name, ?Node $template, int $lineno, string $tag = null)
+    public function __construct(Node $name, ?Node $template, int $lineno, ?string $tag = null)
     {
         $nodes = ['name' => $name];
         if (null !== $template) {
@@ -85,4 +85,4 @@ class BlockReferenceExpression extends AbstractExpression
     }
 }
 
-class_alias('Twig\Node\Expression\BlockReferenceExpression', 'Twig_Node_Expression_BlockReference');
+class_alias(\Twig\Node\Expression\BlockReferenceExpression::class, 'Twig_Node_Expression_BlockReference');

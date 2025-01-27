@@ -22,4 +22,4 @@ class NegUnary extends AbstractUnary
     }
 }
 
-class_alias('Twig\Node\Expression\Unary\NegUnary', 'Twig_Node_Expression_Unary_Neg');
+class_alias(\Twig\Node\Expression\Unary\NegUnary::class, 'Twig_Node_Expression_Unary_Neg');

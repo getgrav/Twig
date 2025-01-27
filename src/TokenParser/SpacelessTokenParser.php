@@ -53,4 +53,4 @@ final class SpacelessTokenParser extends AbstractTokenParser
     }
 }
 
-class_alias('Twig\TokenParser\SpacelessTokenParser', 'Twig_TokenParser_Spaceless');
+class_alias(\Twig\TokenParser\SpacelessTokenParser::class, 'Twig_TokenParser_Spaceless');

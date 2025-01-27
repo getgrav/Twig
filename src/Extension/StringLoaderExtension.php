@@ -22,7 +22,7 @@ final class StringLoaderExtension extends AbstractExtension
     }
 }
 
-class_alias('Twig\Extension\StringLoaderExtension', 'Twig_Extension_StringLoader');
+class_alias(\Twig\Extension\StringLoaderExtension::class, 'Twig_Extension_StringLoader');
 }
 
 namespace {
@@ -39,7 +39,7 @@ use Twig\TemplateWrapper;
  *
  * @return TemplateWrapper
  */
-function twig_template_from_string(Environment $env, $template, string $name = null)
+function twig_template_from_string(Environment $env, $template, ?string $name = null)
 {
     return $env->createTemplate((string) $template, $name);
 }

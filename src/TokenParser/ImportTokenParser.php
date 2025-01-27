@@ -40,4 +40,4 @@ final class ImportTokenParser extends AbstractTokenParser
     }
 }
 
-class_alias('Twig\TokenParser\ImportTokenParser', 'Twig_TokenParser_Import');
+class_alias(\Twig\TokenParser\ImportTokenParser::class, 'Twig_TokenParser_Import');

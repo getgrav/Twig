@@ -32,8 +32,8 @@ class Profile implements \IteratorAggregate, \Serializable
 
     public function __construct(string $template = 'main', string $type = self::ROOT, string $name = 'main')
     {
-        if (__CLASS__ !== static::class) {
-            @trigger_error('Overriding '.__CLASS__.' is deprecated since Twig 2.4.0 and the class will be final in 3.0.', \E_USER_DEPRECATED);
+        if (self::class !== static::class) {
+            @trigger_error('Overriding '.self::class.' is deprecated since Twig 2.4.0 and the class will be final in 3.0.', \E_USER_DEPRECATED);
         }
 
         $this->template = $template;
@@ -186,8 +186,8 @@ class Profile implements \IteratorAggregate, \Serializable
      */
     public function __unserialize(array $data): void
     {
-        list($this->template, $this->name, $this->type, $this->starts, $this->ends, $this->profiles) = $data;
+        [$this->template, $this->name, $this->type, $this->starts, $this->ends, $this->profiles] = $data;
     }
 }
 
-class_alias('Twig\Profiler\Profile', 'Twig_Profiler_Profile');
+class_alias(\Twig\Profiler\Profile::class, 'Twig_Profiler_Profile');

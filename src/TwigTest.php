@@ -38,8 +38,8 @@ class TwigTest
      */
     public function __construct(string $name, $callable = null, array $options = [])
     {
-        if (__CLASS__ !== static::class) {
-            @trigger_error('Overriding '.__CLASS__.' is deprecated since Twig 2.4.0 and the class will be final in 3.0.', \E_USER_DEPRECATED);
+        if (self::class !== static::class) {
+            @trigger_error('Overriding '.self::class.' is deprecated since Twig 2.4.0 and the class will be final in 3.0.', \E_USER_DEPRECATED);
         }
 
         $this->name = $name;
@@ -110,6 +110,6 @@ class TwigTest
 }
 
 // For Twig 1.x compatibility
-class_alias('Twig\TwigTest', 'Twig_SimpleTest', false);
+class_alias(\Twig\TwigTest::class, 'Twig_SimpleTest', false);
 
-class_alias('Twig\TwigTest', 'Twig_Test');
+class_alias(\Twig\TwigTest::class, 'Twig_Test');

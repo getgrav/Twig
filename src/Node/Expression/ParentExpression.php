@@ -21,7 +21,7 @@ use Twig\Compiler;
  */
 class ParentExpression extends AbstractExpression
 {
-    public function __construct(string $name, int $lineno, string $tag = null)
+    public function __construct(string $name, int $lineno, ?string $tag = null)
     {
         parent::__construct([], ['output' => false, 'name' => $name], $lineno, $tag);
     }
@@ -45,4 +45,4 @@ class ParentExpression extends AbstractExpression
     }
 }
 
-class_alias('Twig\Node\Expression\ParentExpression', 'Twig_Node_Expression_Parent');
+class_alias(\Twig\Node\Expression\ParentExpression::class, 'Twig_Node_Expression_Parent');

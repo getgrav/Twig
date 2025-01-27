@@ -51,4 +51,4 @@ class SandboxedPrintNode extends PrintNode
     }
 }
 
-class_alias('Twig\Node\SandboxedPrintNode', 'Twig_Node_SandboxedPrint');
+class_alias(\Twig\Node\SandboxedPrintNode::class, 'Twig_Node_SandboxedPrint');

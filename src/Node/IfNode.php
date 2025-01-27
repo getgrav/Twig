@@ -21,7 +21,7 @@ use Twig\Compiler;
  */
 class IfNode extends Node
 {
-    public function __construct(Node $tests, ?Node $else, int $lineno, string $tag = null)
+    public function __construct(Node $tests, ?Node $else, int $lineno, ?string $tag = null)
     {
         $nodes = ['tests' => $tests];
         if (null !== $else) {
@@ -72,4 +72,4 @@ class IfNode extends Node
     }
 }
 
-class_alias('Twig\Node\IfNode', 'Twig_Node_If');
+class_alias(\Twig\Node\IfNode::class, 'Twig_Node_If');

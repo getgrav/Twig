@@ -44,4 +44,4 @@ interface SecurityPolicyInterface
     public function checkPropertyAllowed($obj, $property);
 }
 
-class_alias('Twig\Sandbox\SecurityPolicyInterface', 'Twig_Sandbox_SecurityPolicyInterface');
+class_alias(\Twig\Sandbox\SecurityPolicyInterface::class, 'Twig_Sandbox_SecurityPolicyInterface');

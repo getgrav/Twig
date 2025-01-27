@@ -21,4 +21,4 @@ class NotEqualBinary extends AbstractBinary
     }
 }
 
-class_alias('Twig\Node\Expression\Binary\NotEqualBinary', 'Twig_Node_Expression_Binary_NotEqual');
+class_alias(\Twig\Node\Expression\Binary\NotEqualBinary::class, 'Twig_Node_Expression_Binary_NotEqual');

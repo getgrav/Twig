@@ -56,7 +56,7 @@ class ArrayExpression extends AbstractExpression
         return false;
     }
 
-    public function addElement(AbstractExpression $value, AbstractExpression $key = null)
+    public function addElement(AbstractExpression $value, ?AbstractExpression $key = null)
     {
         if (null === $key) {
             $key = new ConstantExpression(++$this->index, $value->getTemplateLine());
@@ -85,4 +85,4 @@ class ArrayExpression extends AbstractExpression
     }
 }
 
-class_alias('Twig\Node\Expression\ArrayExpression', 'Twig_Node_Expression_Array');
+class_alias(\Twig\Node\Expression\ArrayExpression::class, 'Twig_Node_Expression_Array');

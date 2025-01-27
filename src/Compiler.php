@@ -242,4 +242,4 @@ class Compiler
     }
 }
 
-class_alias('Twig\Compiler', 'Twig_Compiler');
+class_alias(\Twig\Compiler::class, 'Twig_Compiler');

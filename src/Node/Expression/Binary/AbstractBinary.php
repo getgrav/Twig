@@ -41,4 +41,4 @@ abstract class AbstractBinary extends AbstractExpression
     abstract public function operator(Compiler $compiler);
 }
 
-class_alias('Twig\Node\Expression\Binary\AbstractBinary', 'Twig_Node_Expression_Binary');
+class_alias(\Twig\Node\Expression\Binary\AbstractBinary::class, 'Twig_Node_Expression_Binary');

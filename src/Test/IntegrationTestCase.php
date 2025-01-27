@@ -233,7 +233,7 @@ abstract class IntegrationTestCase extends TestCase
             }
 
             if (false !== $exception) {
-                list($class) = explode(':', $exception);
+                [$class] = explode(':', $exception);
                 $constraintClass = class_exists('PHPUnit\Framework\Constraint\Exception') ? 'PHPUnit\Framework\Constraint\Exception' : 'PHPUnit_Framework_Constraint_Exception';
                 $this->assertThat(null, new $constraintClass($class));
             }
@@ -264,4 +264,4 @@ abstract class IntegrationTestCase extends TestCase
     }
 }
 
-class_alias('Twig\Test\IntegrationTestCase', 'Twig_Test_IntegrationTestCase');
+class_alias(\Twig\Test\IntegrationTestCase::class, 'Twig_Test_IntegrationTestCase');

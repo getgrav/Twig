@@ -123,4 +123,4 @@ final class SecurityPolicy implements SecurityPolicyInterface
     }
 }
 
-class_alias('Twig\Sandbox\SecurityPolicy', 'Twig_Sandbox_SecurityPolicy');
+class_alias(\Twig\Sandbox\SecurityPolicy::class, 'Twig_Sandbox_SecurityPolicy');

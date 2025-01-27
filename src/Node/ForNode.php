@@ -25,7 +25,7 @@ class ForNode extends Node
 {
     private $loop;
 
-    public function __construct(AssignNameExpression $keyTarget, AssignNameExpression $valueTarget, AbstractExpression $seq, ?AbstractExpression $ifexpr, Node $body, ?Node $else, int $lineno, string $tag = null)
+    public function __construct(AssignNameExpression $keyTarget, AssignNameExpression $valueTarget, AbstractExpression $seq, ?AbstractExpression $ifexpr, Node $body, ?Node $else, int $lineno, ?string $tag = null)
     {
         $body = new Node([$body, $this->loop = new ForLoopNode($lineno, $tag)]);
 
@@ -116,4 +116,4 @@ class ForNode extends Node
     }
 }
 
-class_alias('Twig\Node\ForNode', 'Twig_Node_For');
+class_alias(\Twig\Node\ForNode::class, 'Twig_Node_For');

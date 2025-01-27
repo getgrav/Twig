@@ -76,4 +76,4 @@ final class DeprecationCollector
     }
 }
 
-class_alias('Twig\Util\DeprecationCollector', 'Twig_Util_DeprecationCollector');
+class_alias(\Twig\Util\DeprecationCollector::class, 'Twig_Util_DeprecationCollector');

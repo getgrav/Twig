@@ -66,4 +66,4 @@ interface LoaderInterface
     public function exists($name);
 }
 
-class_alias('Twig\Loader\LoaderInterface', 'Twig_LoaderInterface');
+class_alias(\Twig\Loader\LoaderInterface::class, 'Twig_LoaderInterface');

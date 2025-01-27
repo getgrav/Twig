@@ -23,4 +23,4 @@ abstract class AbstractExpression extends Node
 {
 }
 
-class_alias('Twig\Node\Expression\AbstractExpression', 'Twig_Node_Expression');
+class_alias(\Twig\Node\Expression\AbstractExpression::class, 'Twig_Node_Expression');

@@ -28,4 +28,4 @@ final class OptimizerExtension extends AbstractExtension
     }
 }
 
-class_alias('Twig\Extension\OptimizerExtension', 'Twig_Extension_Optimizer');
+class_alias(\Twig\Extension\OptimizerExtension::class, 'Twig_Extension_Optimizer');
