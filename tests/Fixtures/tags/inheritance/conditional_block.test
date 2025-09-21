@@ -10,5 +10,5 @@ conditional "block" tag with "extends" tag
 {% block content %}{% endblock %}
 --DATA--
 return []
---EXCEPTION--
-Twig\Error\SyntaxError: A block definition cannot be nested under non-capturing nodes in "index.twig" at line 5.
+--EXPECT--
+FOO
