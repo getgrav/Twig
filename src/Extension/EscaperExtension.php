@@ -21,7 +21,7 @@ use Twig\Runtime\EscaperRuntime;
 use Twig\TokenParser\AutoEscapeTokenParser;
 use Twig\TwigFilter;
 
-final class EscaperExtension extends AbstractExtension
+class EscaperExtension extends AbstractExtension
 {
     private $environment;
     private $escapers = [];
