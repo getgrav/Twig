@@ -35,7 +35,7 @@ templates from a database or other resources.
 
     Notice that the second argument of the environment is an array of options.
     The ``cache`` option is a compilation cache directory, where Twig caches
-    the compiled templates to avoid the parsing phase for sub-sequent
+    the compiled templates to avoid the parsing phase for subsequent
     requests. It is very different from the cache you might want to add for
     the evaluated templates. For such a need, you can use any available PHP
     cache library.
@@ -130,8 +130,8 @@ The following options are available:
 
 * ``autoescape`` *string*
 
-  Sets the default auto-escaping strategy (``name``, ``html``, ``js``, ``css``,
-  ``url``, ``html_attr``, or a PHP callback that takes the template "filename"
+  Sets the default auto-escaping strategy (``name``, ``html``, ``js``, ``css``, ``url``,
+  ``html_attr``, ``html_attr_relaxed``, or a PHP callback that takes the template "filename"
   and returns the escaping strategy to use -- the callback cannot be a function
   name to avoid collision with built-in escaping strategies); set it to
   ``false`` to disable auto-escaping. The ``name`` escaping strategy determines
@@ -196,7 +196,7 @@ methods::
     $loader->addPath($templateDir3);
     $loader->prependPath($templateDir4);
 
-The filesystem loader also supports namespaced templates. This allows to group
+The filesystem loader also supports namespaced templates. This allows you to group
 your templates under different namespaces which have their own template paths.
 
 When using the ``setPaths()``, ``addPath()``, and ``prependPath()`` methods,

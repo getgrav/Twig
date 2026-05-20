@@ -72,7 +72,7 @@ Nodes
   deprecated.
 
 * The ``Twig\Node\Expression\NameExpression::isSimple()`` and
-  ``Twig\Node\Expression\NameExpression::isSpecial()`` methods are deprecated as 
+  ``Twig\Node\Expression\NameExpression::isSpecial()`` methods are deprecated as
   of Twig 3.11 and will be removed in Twig 4.0.
 
 * The ``filter`` node of ``Twig\Node\Expression\FilterExpression`` is
@@ -237,6 +237,15 @@ Parser
 
 * Passing ``null`` to ``Twig\Parser::setParent()`` is deprecated as of Twig
   3.12.
+
+* Passing a non-``AbstractExpression`` node to ``Twig\Parser::setParent()`` is
+  deprecated as of Twig 3.24; the method will require an ``AbstractExpression``
+  instance in Twig 4.0.
+
+* Passing non-``AbstractExpression`` nodes to
+  ``Twig\Node\Expression\Binary\MatchesBinary`` constructor is deprecated as of
+  Twig 3.24; the constructor will require an ``AbstractExpression`` instance in Twig
+  4.0.
 
 * The ``Twig\Parser::getExpressionParser()`` method is deprecated as of Twig
   3.21, use ``Twig\Parser::parseExpression()`` instead.
@@ -476,3 +485,13 @@ Operators
 
 * The ``Twig\OperatorPrecedenceChange`` class is deprecated as of Twig 3.21,
   use ``Twig\ExpressionParser\PrecedenceChange`` instead.
+
+* Not implementing the ``getOperatorTokens()`` method in
+  ``Twig\ExpressionParser\ExpressionParserInterface`` implementations is
+  deprecated as of Twig 3.24. This method will be added to the interface in
+  Twig 4.0. It returns the operator token strings that the expression parser
+  handles (used by the Lexer and the parser registry). If your custom
+  expression parser extends ``Twig\ExpressionParser\AbstractExpressionParser``,
+  the default implementation returns ``[$this->getName(), ...$this->getAliases()]``.
+  Override it if your parser doesn't handle operator tokens (return ``[]``) or if
+  the operator tokens differ from the parser name.

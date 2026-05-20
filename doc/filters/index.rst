@@ -26,9 +26,12 @@ Filters
     format_datetime
     format_number
     format_time
+    html_attr_merge
+    html_attr_type
     html_to_markdown
     inline_css
     inky_to_html
+    invoke
     join
     json_encode
     keys

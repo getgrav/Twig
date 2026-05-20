@@ -21,6 +21,7 @@ namespace Twig\Tests\Node;
  */
 
 use Twig\Environment;
+use Twig\Error\RuntimeError;
 use Twig\Loader\ArrayLoader;
 use Twig\Node\BodyNode;
 use Twig\Node\EmptyNode;
@@ -54,6 +55,29 @@ class ModuleTest extends NodeTestCase
         $this->assertEquals($macros, $node->getNode('macros'));
         $this->assertEquals($parent, $node->getNode('parent'));
         $this->assertEquals($source->getName(), $node->getTemplateName());
+    }
+
+    public function testUseTagTemplateNameDoesNotInjectPhpInCompiledOutput()
+    {
+        $evilName = "evil' . print('BAD-EOL') . '.twig";
+        $loader = new ArrayLoader([
+            $evilName => '{% block existing %}ok{% endblock %}',
+            'main.twig' => "{% use \"$evilName\" with absent_block as alias %}",
+        ]);
+        $twig = new Environment($loader);
+
+        ob_start();
+        $message = null;
+        try {
+            $twig->load('main.twig');
+        } catch (RuntimeError $e) {
+            $message = $e->getMessage();
+        }
+        $stdout = ob_get_clean();
+
+        $this->assertSame('', $stdout, 'No code from the template name must execute when the trait is loaded.');
+        $this->assertNotNull($message, 'A RuntimeError must be raised for the missing block.');
+        $this->assertStringContainsString($evilName, $message, 'The error message must contain the literal template name.');
     }
 
     public static function provideTests(): iterable
@@ -137,8 +161,7 @@ class __TwigTemplate_%x extends Template
         return new Source("", "foo.twig", "");
     }
 }
-EOF
-            , $twig, true];
+EOF, $twig, true];
 
         $import = new ImportNode(new ConstantExpression('foo.twig', 1), new AssignTemplateVariable(new TemplateVariable('macro', 2), true), 2);
 
@@ -227,8 +250,7 @@ class __TwigTemplate_%x extends Template
         return new Source("", "foo.twig", "");
     }
 }
-EOF
-            , $twig, true];
+EOF, $twig, true];
 
         $set = new SetNode(false, new Nodes([new AssignContextVariable('foo', 4)]), new Nodes([new ConstantExpression('foo', 4)]), 4);
         $body = new BodyNode([$set]);
@@ -321,8 +343,7 @@ class __TwigTemplate_%x extends Template
         return new Source("{{ foo }}", "foo.twig", "");
     }
 }
-EOF
-            , $twig, true];
+EOF, $twig, true];
 
         return $tests;
     }

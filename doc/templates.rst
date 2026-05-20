@@ -131,14 +131,33 @@ The following variables are always available in templates:
 Setting Variables
 ~~~~~~~~~~~~~~~~~
 
-You can assign values to variables inside code blocks. Assignments use the
-:doc:`set<tags/set>` tag:
+You can assign values to variables inside code blocks using either the
+:doc:`set<tags/set>` tag or the :ref:`= operator <templates-assignment-operator>`:
 
 .. code-block:: twig
 
     {% set name = 'Fabien' %}
     {% set numbers = [1, 2] %}
     {% set map = {'city': 'Paris'} %}
+    {% set first, last = 'Fabien', 'Potencier' %}
+
+    {# or #}
+
+    {% do name = 'Fabien' %}
+    {% do numbers = [1, 2] %}
+    {% do map = {'city': 'Paris'} %}
+    {% do [first, last] = ['Fabien', 'Potencier'] %}
+
+The ``set`` tag can also be used to capture template content into
+a variable:
+
+  .. code-block:: html+twig
+
+      {% set content %}
+          <div id="pagination">...</div>
+      {% endset %}
+
+See the :doc:`set<tags/set>` tag documentation for more details.
 
 Filters
 -------
@@ -342,7 +361,7 @@ Inline comments can also be on the same line as the expression:
     }}
 
 As inline comments continue until the end of the current line, the following
-code does not work as ``}}``would be part of the comment:
+code does not work as ``}}`` would be part of the comment:
 
 .. code-block:: twig
 
@@ -591,7 +610,7 @@ exist:
 
 * ``42`` / ``42.23``: Integers and floating point numbers are created by
   writing the number down. If a dot is present the number is a float,
-  otherwise an integer. Underscores can be used as digits separator to 
+  otherwise an integer. Underscores can be used as digits separator to
   improve readability (``-3_141.592_65`` is equivalent to ``-3141.59265``).
 
 * ``["first_name", "last_name"]``: Sequences are defined by a sequence of expressions
@@ -722,6 +741,9 @@ Comparisons
 The following mathematical comparison operators are supported in any
 expression: ``==``, ``!=``, ``<``, ``>``, ``>=``, and ``<=``.
 
+In addition, the ``===`` and ``!==`` strict comparison operators are supported
+(they are equivalent to the ``same as`` and ``not same as`` tests).
+
 Spaceship Operator
 ~~~~~~~~~~~~~~~~~~
 
@@ -771,6 +793,21 @@ operand is contained in the right:
 
     You can use this operator to perform a containment test on strings,
     sequences, mappings, or objects implementing the ``Traversable`` interface.
+
+.. note::
+
+    For sequences, mappings, and ``Traversable`` objects, ``in`` uses a loose
+    comparison (similar to ``==``); use :doc:`same as <tests/sameas>` for a
+    strict comparison. Like PHP's ``in_array()``, this can yield unexpected
+    results when the left operand is a boolean:
+
+    .. code-block:: twig
+
+        {# returns true because true == 'foo' under PHP loose comparison #}
+        {{ true in ['foo', 'bar'] }}
+
+    Containment on strings only accepts string, integer, and float operands on
+    the left; other types always return ``false``.
 
 To perform a negative test, use the ``not in`` operator:
 
@@ -862,7 +899,7 @@ The following operators don't fit into any of the other categories:
 
 .. _dot_operator:
 
-* ``.``, ``[]``: Gets an attribute of a variable.
+* ``.``, ``?.``, ``[]``: Gets an attribute of a variable.
 
   The (``.``) operator abstracts getting an attribute of a variable (methods,
   properties or constants of a PHP object, or items of a PHP array):
@@ -871,8 +908,27 @@ The following operators don't fit into any of the other categories:
 
       {{ user.name }}
 
-  After the ``.``, you can use any expression by wrapping it with parenthesis
-  ``()``.
+  The null-safe operator (``?.``) works like the dot operator but returns
+  ``null`` instead of throwing an exception when the left operand is ``null``.
+  If the operand is part of a chain, the rest of the chain is skipped:
+
+  .. code-block:: twig
+
+      {{ user?.name }}
+      {# returns null if user is null, otherwise returns user.name #}
+
+      {{ user?.address?.city }}
+      {# can be chained for safe navigation through potentially null values #}
+
+      {{ user?.address.city }}
+      {# returns null if user is null, the rest of the chain is skipped (address.city is not evaluated) #}
+
+  .. versionadded:: 3.23
+
+      The null-safe operator was added in Twig 3.23.
+
+  After the ``.`` or ``?.``, you can use any expression by wrapping it with
+  parenthesis ``()``.
 
   One use case is when the attribute contains special characters (like ``-``
   that would be interpreted as the minus operator):
@@ -881,6 +937,7 @@ The following operators don't fit into any of the other categories:
 
       {# equivalent to the non-working user.first-name #}
       {{ user.('first-name') }}
+      {{ user?.('first-name') }}
 
   Another use case is when the attribute is "dynamic" (defined via a variable):
 
@@ -888,6 +945,7 @@ The following operators don't fit into any of the other categories:
 
       {{ user.(name) }}
       {{ user.('get' ~ name) }}
+      {{ user?.(name) }}
 
   Before Twig 3.15, use the :doc:`attribute <functions/attribute>` function
   instead for the two previous use cases.
@@ -913,7 +971,7 @@ The following operators don't fit into any of the other categories:
       To resolve ``user.name`` to a PHP call, Twig uses the following algorithm
       at runtime:
 
-      * check if ``user`` is a PHP array or a ArrayObject/ArrayAccess object and
+      * check if ``user`` is a PHP array or an ArrayObject/ArrayAccess object and
         ``name`` a valid element;
       * if not, and if ``user`` is a PHP object, check that ``name`` is a valid property;
       * if not, and if ``user`` is a PHP object, check that ``name`` is a class constant;
@@ -922,6 +980,12 @@ The following operators don't fit into any of the other categories:
         ``hasName()``;
       * if not, and if ``strict_variables`` is ``false``, return ``null``;
       * if not, throw an exception.
+
+      To resolve ``user?.name`` to a PHP call, Twig checks if ``user`` is
+      ``null`` first:
+
+      * if ``user`` is ``null``, return ``null``;
+      * otherwise, use the same algorithm as for ``user.name``.
 
       To resolve ``user['name']`` to a PHP call, Twig uses the following algorithm
       at runtime:
@@ -933,7 +997,7 @@ The following operators don't fit into any of the other categories:
       Twig supports a specific syntax via the ``()`` operator for calling methods
       on objects, like in ``user.name()``:
 
-      * check if ``user`` is a object and has the ``name()``, ``getName()``,
+      * check if ``user`` is an object and has the ``name()``, ``getName()``,
         ``isName()``, or ``hasName()`` method;
       * if not, and if ``strict_variables`` is ``false``, return ``null``;
       * if not, throw an exception.
@@ -967,6 +1031,32 @@ The following operators don't fit into any of the other categories:
 
     Support for expanding the arguments of a function call was introduced in
     Twig 3.15.
+
+.. _templates-assignment-operator:
+
+* ``=``: The assignment operator assigns a value to a variable within an
+  expression:
+
+  .. code-block:: twig
+
+      {# assign #}
+      {% do b = 1 + 3 %}
+
+      {# assign and output the result #}
+      {{ b = 1 + 3 }}
+
+      {# assignments can be chained #}
+      {% do a = b = 'foo' %}
+
+      {# assignment can be used inside other expressions #}
+      {% do a = (b = 4) + 5 %}
+
+  The assignment operator also supports :ref:`destructuring
+  <templates-destructuring>`.
+
+  .. versionadded:: 3.23
+
+      The ``=`` assignment operator was added in Twig 3.23.
 
 * ``=>``: The arrow operator allows the creation of functions. A function is
   made of arguments (use parentheses for multiple arguments) and an arrow
@@ -1008,7 +1098,7 @@ Twig uses operators to perform various operations within templates.
 Understanding the precedence of these operators is crucial for writing correct
 and efficient Twig templates.
 
-The operator precedence rules are as follows, with the lowest-precedence
+The operator precedence rules are as follows, with the highest-precedence
 operators listed first.
 
 .. include:: operators_precedence.rst
@@ -1035,6 +1125,98 @@ parentheses:
     {# use parenthesis to change precedence #}
     {{ (greeting ~ name)|lower }} {# hello fabien #}
 
+.. _templates-destructuring:
+
+Destructuring
+-------------
+
+.. versionadded:: 3.23
+
+    Destructuring was added in Twig 3.23.
+
+Destructuring allows you to extract values from sequences and assign them to
+variables in a single operation using the ``=`` :ref:`assignment operator
+<templates-assignment-operator>`.
+
+Like in PHP, destructuring expressions return the right-hand side value, not
+the extracted values:
+
+.. code-block:: twig
+
+    {# returns the full user object, allowing chained access #}
+    {{ ({name} = user).email }}
+
+Sequence Destructuring
+~~~~~~~~~~~~~~~~~~~~~~
+
+Use square brackets on the left side of an assignment to destructure a
+sequence:
+
+.. code-block:: twig
+
+    {% do [first, last] = ['Fabien', 'Potencier'] %}
+
+    {{ first }} {# Fabien #}
+    {{ last }}  {# Potencier #}
+
+If there are more variables than values, the extra variables are set to
+``null``:
+
+.. code-block:: twig
+
+    {# extra will be null #}
+    {% do [first, last, extra] = ['Fabien', 'Potencier'] %}
+
+You can skip values by leaving a slot empty:
+
+.. code-block:: twig
+
+    {# only assign the second value #}
+    {% do [, last] = ['Fabien', 'Potencier'] %}
+
+Object Destructuring
+~~~~~~~~~~~~~~~~~~~~
+
+Use curly braces on the left side of an assignment to destructure an object
+or mapping by extracting values based on property/key names:
+
+.. code-block:: twig
+
+    {% do {name, email} = user %}
+
+    {{ name }}  {# user.name #}
+    {{ email }} {# user.email #}
+
+You can rename variables during destructuring by using the ``key: variable``
+syntax, where the key is the property to extract and the variable is the name
+to assign to:
+
+.. code-block:: twig
+
+    {% do {name: userName, email: userEmail} = user %}
+
+    {{ userName }}  {# user.name #}
+    {{ userEmail }} {# user.email #}
+
+This is especially useful when you need to destructure multiple objects that
+share the same property names:
+
+.. code-block:: twig
+
+    {% do {data: product, error: productError} = loadProduct() %}
+    {% do {data: stock, error: stockError} = loadStock() %}
+
+    {{ product }}      {# loadProduct().data #}
+    {{ productError }} {# loadProduct().error #}
+    {{ stock }}        {# loadStock().data #}
+    {{ stockError }}   {# loadStock().error #}
+
+.. note::
+
+    Object destructuring uses the :ref:`dot operator <dot_operator>` to access
+    values, so ``{name} = user`` is equivalent to ``name = user.name`` or
+    ``name = user["name"]`` depending on the type of the variable.
+
 .. _templates-whitespace-control:
 
 Whitespace Control
@@ -1054,7 +1236,7 @@ Twig supports two modifiers:
 
 * *Line whitespace trimming* via the ``~`` modifier: Removes all whitespace
   (excluding newlines). Using this modifier on the right disables the default
-  removal of the first newline inherited from PHP.
+  removal of the first newline mentioned above.
 
 The modifiers can be used on either side of the tags like in ``{%-`` or ``-%}``
 and they consume all whitespace for that side of the tag. It is possible to use

@@ -26,6 +26,7 @@ use Twig\Error\SyntaxError;
 use Twig\Lexer;
 use Twig\Loader\ArrayLoader;
 use Twig\Node\EmptyNode;
+use Twig\Node\Expression\ConstantExpression;
 use Twig\Node\Node;
 use Twig\Node\Nodes;
 use Twig\Node\SetNode;
@@ -77,7 +78,6 @@ class ParserTest extends TestCase
     {
         $parser = $this->getParser();
         $m = new \ReflectionMethod($parser, 'filterBodyNodes');
-        $m->setAccessible(true);
 
         $this->assertEquals($expected, $m->invoke($parser, $input));
     }
@@ -108,7 +108,6 @@ class ParserTest extends TestCase
         $parser = $this->getParser();
 
         $m = new \ReflectionMethod($parser, 'filterBodyNodes');
-        $m->setAccessible(true);
 
         $this->expectException(SyntaxError::class);
         $m->invoke($parser, $input);
@@ -130,7 +129,6 @@ class ParserTest extends TestCase
         $parser = $this->getParser();
 
         $m = new \ReflectionMethod($parser, 'filterBodyNodes');
-        $m->setAccessible(true);
         $this->assertNull($m->invoke($parser, new TextNode(\chr(0xEF).\chr(0xBB).\chr(0xBF).$emptyNode, 1)));
     }
 
@@ -165,7 +163,6 @@ class ParserTest extends TestCase
         ], new Source('', '')));
 
         $p = new \ReflectionProperty($parser, 'parent');
-        $p->setAccessible(true);
         $this->assertNull($p->getValue($parser));
     }
 
@@ -182,8 +179,7 @@ class ParserTest extends TestCase
 {% macro foo() %}
     {{ foo }}
 {% endmacro %}
-EOF
-            , 'index')));
+EOF, 'index')));
 
         // The getVarName() must not depend on the template loaders,
         // If this test does not throw any exception, that's good.
@@ -210,13 +206,26 @@ EOF
         $this->assertTrue($argumentNodes->getNode(3)->getAttribute('value'));
     }
 
+    public function testEmbeddedTemplatesHaveSequentialIndices(): void
+    {
+        $template = new Source('{% embed "first" %}{% endembed %}{% embed "second" %}{% endembed %}', 'index');
+        $lexer = new Lexer(new Environment(new ArrayLoader()));
+        $stream = $lexer->tokenize($template);
+
+        $embeds = $this->getParser()
+            ->parse($stream)
+            ->getAttribute('embedded_templates');
+
+        $this->assertSame(1, $embeds->getNode(0)->getAttribute('index'));
+        $this->assertSame(2, $embeds->getNode(1)->getAttribute('index'));
+    }
+
     protected function getParser()
     {
         $parser = new Parser(new Environment(new ArrayLoader()));
-        $parser->setParent(new EmptyNode());
+        $parser->setParent(new ConstantExpression('base.html', 1));
 
         $p = new \ReflectionProperty($parser, 'stream');
-        $p->setAccessible(true);
         $p->setValue($parser, new TokenStream([], new Source('', '')));
 
         return $parser;

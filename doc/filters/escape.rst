@@ -39,11 +39,11 @@ And here is how to escape variables included in JavaScript code:
 The ``escape`` filter supports the following escaping strategies for HTML
 documents:
 
-* ``html``: escapes a string for the **HTML body** context, 
+* ``html``: escapes a string for the **HTML body** context,
   or for HTML attributes values **inside quotes**.
 
-* ``js``: escapes a string for the **JavaScript** context. This is intended for 
-  use in JavaScript or JSON strings, and encodes values using backslash escape 
+* ``js``: escapes a string for the **JavaScript** context. This is intended for
+  use in JavaScript or JSON strings, and encodes values using backslash escape
   sequences.
 
 * ``css``: escapes a string for the **CSS** context. CSS escaping can be
@@ -56,6 +56,16 @@ documents:
 * ``html_attr``: escapes a string when used as an **HTML attribute** name, and
   also when used as the value of an HTML attribute **without quotes**
   (e.g. ``data-attribute={{ some_value }}``).
+
+* ``html_attr_relaxed``: like ``html_attr``, but **does not** escape the ``@``, ``:``,
+  ``[`` and ``]`` characters. You may want to use this in combination with front-end
+  frameworks that use attribute names like ``v-bind:href`` or ``@click``. But, be
+  aware that in some processing contexts like XML, characters like the colon ``:``
+  may have meaning like for XML namespace separation.
+
+.. versionadded:: 3.24
+
+    The ``html_attr_relaxed`` strategy has been added in 3.23.
 
 Note that doing contextual escaping in HTML documents is hard and choosing the
 right escaping strategy depends on a lot of factors. Please, read related

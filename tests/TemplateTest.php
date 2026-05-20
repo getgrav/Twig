@@ -150,6 +150,43 @@ class TemplateTest extends TestCase
         ];
     }
 
+    /**
+     * @dataProvider getNullCoalesceWithImportedMacroData
+     */
+    public function testNullCoalesceWithImportedMacro(array $templates, string $expected)
+    {
+        $twig = new Environment(new ArrayLoader($templates));
+
+        $this->assertSame($expected, trim($twig->render('index.twig')));
+    }
+
+    public static function getNullCoalesceWithImportedMacroData(): array
+    {
+        return [
+            'from import' => [
+                [
+                    'index.twig' => '{% from "helper.twig" import foo %}{{ foo("bar") ?? "" }}',
+                    'helper.twig' => '{% macro foo(param) %}{{ param }}{% endmacro %}',
+                ],
+                'bar',
+            ],
+            'from import with undefined macro falls back' => [
+                [
+                    'index.twig' => '{% from "helper.twig" import foo, nonexistent %}{{ nonexistent("bar") ?? "fallback" }}',
+                    'helper.twig' => '{% macro foo(param) %}{{ param }}{% endmacro %}',
+                ],
+                'fallback',
+            ],
+            'from import used multiple times' => [
+                [
+                    'index.twig' => '{% from "helper.twig" import foo %}{{ foo("a") ?? "" }}-{{ foo("b") ?? "" }}',
+                    'helper.twig' => '{% macro foo(param) %}{{ param }}{% endmacro %}',
+                ],
+                'a-b',
+            ],
+        ];
+    }
+
     public function testRenderBlockWithUndefinedBlock()
     {
         $twig = new Environment(new ArrayLoader());
@@ -203,7 +240,7 @@ class TemplateTest extends TestCase
         }
         $this->assertSame('FloatButString', $array['1.5']);
         $this->assertSame('IntegerButStringWithLeadingZeros', $array['01']);
-        $this->assertSame('EmptyString', $array[null]);
+        $this->assertSame('EmptyString', $array['']);
 
         $this->assertSame('Zero', CoreExtension::getAttribute($twig, $template->getSourceContext(), $array, false), 'false is treated as 0 when accessing a sequence/mapping (equals PHP behavior)');
         $this->assertSame('One', CoreExtension::getAttribute($twig, $template->getSourceContext(), $array, true), 'true is treated as 1 when accessing a sequence/mapping (equals PHP behavior)');
@@ -404,8 +441,8 @@ class TemplateTest extends TestCase
         ]);
 
         // test for Closure::__invoke()
-        $tests[] = [true, 'closure called', fn (): string => 'closure called', '__invoke', [], $anyType];
-        $tests[] = [true, 'closure called', fn (): string => 'closure called', '__invoke', [], $methodType];
+        $tests[] = [true, 'closure called', static fn (): string => 'closure called', '__invoke', [], $anyType];
+        $tests[] = [true, 'closure called', static fn (): string => 'closure called', '__invoke', [], $methodType];
 
         // tests when input is not an array or object
         $tests = array_merge($tests, [
@@ -567,7 +604,7 @@ class TemplatePropertyObject
 {
     public $defined = 'defined';
     public $zero = 0;
-    public $null = null;
+    public $null;
     public $bar = true;
     public $foo = true;
     public $baz = 'baz';
