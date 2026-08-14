@@ -22,18 +22,19 @@ use Twig\ExpressionParser\PrefixExpressionParserInterface;
 use Twig\Node\BlockNode;
 use Twig\Node\BlockReferenceNode;
 use Twig\Node\BodyNode;
-use Twig\Node\IfNode;
 use Twig\Node\EmptyNode;
 use Twig\Node\Expression\AbstractExpression;
-use Twig\Node\Expression\Variable\AssignTemplateVariable;
-use Twig\Node\Expression\Variable\TemplateVariable;
+use Twig\Node\Expression\Variable\AssignMacroVariable;
+use Twig\Node\Expression\Variable\MacroVariable;
+use Twig\Node\IfNode;
+use Twig\Node\MacroImportsNode;
 use Twig\Node\MacroNode;
+use Twig\Node\MacrosNode;
 use Twig\Node\ModuleNode;
 use Twig\Node\Node;
-use Twig\Node\NodeCaptureInterface;
-use Twig\Node\NodeOutputInterface;
 use Twig\Node\Nodes;
 use Twig\Node\PrintNode;
+use Twig\Node\SkipLazyMacroImportsNode;
 use Twig\Node\TextNode;
 use Twig\TokenParser\TokenParserInterface;
 use Twig\Util\ReflectionCallable;
@@ -109,10 +110,6 @@ class Parser
 
         try {
             $body = $this->subparse($test, $dropNeedle);
-
-            if (null !== $this->parent && null === $body = $this->filterBodyNodes($body)) {
-                $body = new EmptyNode();
-            }
         } catch (SyntaxError $e) {
             if (!$e->getSourceContext()) {
                 $e->setSourceContext($this->stream->getSourceContext());
@@ -127,11 +124,16 @@ class Parser
             $this->expressionRefs = null;
         }
 
+        if ($this->parent) {
+            $body = $this->cleanupBodyForChildTemplates($body);
+        }
+
+        $body = new BodyNode([$body]);
         $node = new ModuleNode(
-            new BodyNode([$body]),
+            $body,
             $this->parent,
             $this->blocks ? new Nodes($this->blocks) : new EmptyNode(),
-            $this->macros ? new Nodes($this->macros) : new EmptyNode(),
+            new MacrosNode($this->macros, new MacroImportsNode($body)),
             $this->traits ? new Nodes($this->traits) : new EmptyNode(),
             $this->embeddedTemplates ? new Nodes($this->embeddedTemplates) : new EmptyNode(),
             $stream->getSourceContext(),
@@ -143,6 +145,11 @@ class Parser
          * @var ModuleNode $node
          */
         $node = $traverser->traverse($node);
+
+        $macros = $node->getNode('macros');
+        if ($macros instanceof MacrosNode && $macros->hasImports()) {
+            $node->setNode('display_start', new Nodes([new SkipLazyMacroImportsNode(), $node->getNode('display_start')]));
+        }
 
         // restore previous stack so previous parse() call can resume working
         foreach (array_pop($this->stack) as $key => $val) {
@@ -306,6 +313,10 @@ class Parser
 
     public function setMacro(string $name, MacroNode $node): void
     {
+        if (isset($this->macros[$name])) {
+            trigger_deprecation('twig/twig', '3.29', 'Defining the macro "%s" more than once in "%s" is deprecated and will throw a SyntaxError in Twig 4.0 (first definition at line %d, second at line %d). The last definition is used in Twig 3.', $name, $this->stream->getSourceContext()->getName(), $this->macros[$name]->getTemplateLine(), $node->getTemplateLine());
+        }
+
         $this->macros[$name] = $node;
     }
 
@@ -321,29 +332,26 @@ class Parser
         return \count($this->traits) > 0;
     }
 
-    /**
-     * @return void
-     */
-    public function embedTemplate(ModuleNode $template)
+    public function embedTemplate(ModuleNode $template): void
     {
         $template->setIndex(++$this->lastEmbedIndex);
 
         $this->embeddedTemplates[] = $template;
     }
 
-    public function addImportedSymbol(string $type, string $alias, ?string $name = null, AbstractExpression|AssignTemplateVariable|null $internalRef = null): void
+    public function addImportedSymbol(string $type, string $alias, ?string $name = null, AbstractExpression|AssignMacroVariable|null $internalRef = null): void
     {
-        if ($internalRef && !$internalRef instanceof AssignTemplateVariable) {
-            trigger_deprecation('twig/twig', '3.15', 'Not passing a "%s" instance as an internal reference is deprecated ("%s" given).', __METHOD__, AssignTemplateVariable::class, $internalRef::class);
+        if ($internalRef && !$internalRef instanceof AssignMacroVariable) {
+            trigger_deprecation('twig/twig', '3.15', 'Not passing a "%s" instance as an internal reference is deprecated ("%s" given).', __METHOD__, AssignMacroVariable::class, $internalRef::class);
 
-            $internalRef = new AssignTemplateVariable(new TemplateVariable($internalRef->getAttribute('name'), $internalRef->getTemplateLine()), $internalRef->getAttribute('global'));
+            $internalRef = new AssignMacroVariable(new MacroVariable($internalRef->getAttribute('name'), $internalRef->getTemplateLine()), $internalRef->getAttribute('global'));
         }
 
         $this->importedSymbols[0][$type][$alias] = ['name' => $name, 'node' => $internalRef];
     }
 
     /**
-     * @return array{name: string, node: AssignTemplateVariable|null}|null
+     * @return array{name: string, node: AssignMacroVariable|null}|null
      */
     public function getImportedSymbol(string $type, string $alias)
     {
@@ -417,7 +425,7 @@ class Parser
         return $this->parent || 0 < \count($this->traits);
     }
 
-    public function setParent(?Node $parent): void
+    public function setParent(?Node $parent, bool $throwOnMultiple = true): void
     {
         if (null === $parent) {
             trigger_deprecation('twig/twig', '3.12', 'Passing "null" to "%s()" is deprecated.', __METHOD__);
@@ -428,6 +436,10 @@ class Parser
         }
 
         if (null !== $this->parent) {
+            if (!$throwOnMultiple) {
+                return;
+            }
+
             throw new SyntaxError('Multiple extends tags are forbidden.', $parent->getTemplateLine(), $parent->getSourceContext());
         }
 
@@ -551,56 +563,56 @@ class Parser
         return $test;
     }
 
-    private function filterBodyNodes(Node $node, bool $nested = false): ?Node
+    private function cleanupBodyForChildTemplates(Node $body): Node
     {
-        // check that the body does not contain non-empty output nodes
-        if (
-            ($node instanceof TextNode && !ctype_space($node->getAttribute('data')))
-            || (!$node instanceof TextNode && !$node instanceof BlockReferenceNode && $node instanceof NodeOutputInterface)
-        ) {
-            if (str_contains((string) $node, \chr(0xEF).\chr(0xBB).\chr(0xBF))) {
-                $t = substr($node->getAttribute('data'), 3);
-                if ('' === $t || ctype_space($t)) {
-                    // bypass empty nodes starting with a BOM
-                    return null;
-                }
-            }
-
-            throw new SyntaxError('A template that extends another one cannot include content outside Twig blocks. Did you forget to put the content inside a {% block %} tag?', $node->getTemplateLine(), $this->stream->getSourceContext());
+        if ($body instanceof BlockReferenceNode || ($body instanceof TextNode && $body->isBlank())) {
+            return new EmptyNode();
         }
 
-        // bypass nodes that "capture" the output
-        if ($node instanceof NodeCaptureInterface) {
-            // a "block" tag in such a node will serve as a block definition AND be displayed in place as well
-            return $node;
-        }
-
-        // "block" tags that are not captured (see above) are only used for defining
-        // the content of the block. In such a case, nesting it does not work as
-        // expected as the definition is not part of the default template code flow.
-        if ($nested && $node instanceof BlockReferenceNode) {
-            throw new SyntaxError('A block definition cannot be nested under non-capturing nodes.', $node->getTemplateLine(), $this->stream->getSourceContext());
-        }
-
-        if ($node instanceof NodeOutputInterface) {
-            return null;
-        }
-
-        // here, $nested means "being at the root level of a child template"
-        // we need to discard the wrapping "Node" for the "body" node
-        // Node::class !== \get_class($node) should be removed in Twig 4.0
-        $transparentNested = $node instanceof IfNode;
-        $nested = $nested || ((!$transparentNested) && Node::class !== $node::class && !$node instanceof Nodes);
-        foreach ($node as $k => $n) {
-            if (null !== $n && null === $this->filterBodyNodes($n, $nested)) {
-                $node->removeNode($k);
+        foreach ($body as $k => $node) {
+            if ($node instanceof BlockReferenceNode) {
+                // as it has a parent, the block reference won't be used
+                $body->removeNode($k);
+            } elseif ($node instanceof TextNode && $node->isBlank()) {
+                // remove nodes considered as "empty"
+                $body->removeNode($k);
+            } elseif ($node instanceof IfNode) {
+                // GRAV FORK: see cleanupTransparentBodyNodes()
+                $this->cleanupTransparentBodyNodes($node);
             }
         }
 
-        return $node;
+        return $body;
     }
 
-    private function checkPrecedenceDeprecations(ExpressionParserInterface $expressionParser, AbstractExpression $expr)
+    /**
+     * GRAV FORK: strip block references sitting under an "if" at the root of a child template.
+     *
+     * CorrectnessNodeVisitor lets a "block" definition sit under an "if" so that Grav themes can
+     * override a parent block conditionally. Without this pass the definition would also be
+     * rendered in place, so the block's content would show up twice.
+     *
+     * Only "if" and plain containers are walked, which keeps the nesting errors the visitor
+     * raises for every other tag ("for", "embed", ...) reachable, and leaves capturing nodes
+     * such as "set" alone, where a block legitimately does render in place.
+     *
+     * References are replaced rather than removed so an "if" branch keeps its slot in the
+     * node's "tests" list.
+     *
+     * Upstream equivalent before 3.27: the recursive removal in Parser::filterBodyNodes().
+     */
+    private function cleanupTransparentBodyNodes(Node $parent): void
+    {
+        foreach ($parent as $k => $node) {
+            if ($node instanceof BlockReferenceNode || ($node instanceof TextNode && $node->isBlank())) {
+                $parent->setNode($k, new EmptyNode());
+            } elseif ($node instanceof IfNode || $node instanceof Nodes || Node::class === $node::class) {
+                $this->cleanupTransparentBodyNodes($node);
+            }
+        }
+    }
+
+    private function checkPrecedenceDeprecations(ExpressionParserInterface $expressionParser, AbstractExpression $expr): void
     {
         $this->expressionRefs[$expr] = $expressionParser;
         $precedenceChanges = $this->parsers->getPrecedenceChanges();

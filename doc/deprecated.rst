@@ -5,6 +5,15 @@ This document lists deprecated features in Twig 3.x. Deprecated features are
 kept for backward compatibility and removed in the next major release (a
 feature that was deprecated in Twig 3.x is removed in Twig 4.0).
 
+Classes
+-------
+
+* The ``Twig\Markup`` class is considered final as of Twig 3.28 and will be
+  final in Twig 4.0. Use ``Twig\Markup`` directly instead of extending it.
+
+* The ``Twig\Node\MacroNode`` class is considered final as of Twig 3.29 and
+  will be final in Twig 4.0.
+
 Functions
 ---------
 
@@ -63,6 +72,13 @@ Nodes
 
 * Not passing a ``BodyNode`` instance as the body of a ``ModuleNode`` or
   ``MacroNode`` constructor is deprecated as of Twig 3.12.
+
+* Not passing a ``MacrosNode`` instance as the macros of a ``ModuleNode``
+  constructor is deprecated as of Twig 3.29.
+
+* Not passing the ``$usedTests`` argument to
+  ``Twig\Node\CheckSecurityNode::__construct()`` is deprecated as of Twig
+  3.28; the argument will be required in 4.0.
 
 * Returning ``null`` from ``TokenParserInterface::parse()`` is deprecated as of
   Twig 3.12 (as forbidden by the interface).
@@ -169,6 +185,11 @@ Nodes
 
 * The ``MethodCallExpression`` class is deprecated as of Twig 3.15, use
   ``MacroReferenceExpression`` instead.
+
+* The ``Twig\Node\Expression\Variable\TemplateVariable`` and
+  ``Twig\Node\Expression\Variable\AssignTemplateVariable`` classes are
+  deprecated as of Twig 3.29; use ``MacroVariable`` and
+  ``AssignMacroVariable`` instead.
 
 * The ``Twig\Node\Expression\TempNameExpression`` class is deprecated as of
   Twig 3.15; use ``Twig\Node\Expression\Variable\LocalVariable`` instead.
@@ -291,6 +312,52 @@ Templates
   in ``Environment::resolveTemplate()`` and ``Environment::load()``); pass
   instances of ``Twig\TemplateWrapper`` instead.
 
+* Using a ``macro``, ``extends``, or ``use`` tag outside the root of a template
+  (for instance nested under an ``if`` or inside a ``block`` or ``macro``) is
+  deprecated as of Twig 3.28 and will throw in Twig 4.0. These tags have a
+  global effect on the template and must be declared at the root of its body.
+
+Macros
+------
+
+* Defining a macro more than once in the same template is deprecated as of Twig
+  3.29 and will throw a ``SyntaxError`` in Twig 4.0. Give each macro a unique
+  name.
+
+* Passing more arguments to a macro than it declares is deprecated as of Twig
+  3.29 and will throw in Twig 4.0. Declare an explicit variadic argument
+  (``{% macro foo(a, ...rest) %}``) to accept extra positional and named
+  arguments instead of relying on the implicit ``varargs`` variable.
+
+* Passing an unknown named argument to a macro is deprecated as of Twig 3.29 and
+  will throw in Twig 4.0. Declare an explicit variadic argument to accept it.
+
+* Omitting parentheses when calling a macro (e.g. ``macros.input`` or
+  ``macros.(name)``) is deprecated as of Twig 3.29 and will throw a
+  ``SyntaxError`` in Twig 4.0. Add parentheses after the macro name (e.g.
+  ``macros.input()`` or ``macros.(name)()``).
+
+* Using parentheses when testing a macro with the ``defined`` test (e.g.
+  ``macros.input() is defined``) is deprecated as of Twig 3.29 and will throw a
+  ``SyntaxError`` in Twig 4.0. The test checks the macro itself, not a call, so
+  remove the parentheses after the macro name (e.g.
+  ``macros.input is defined``).
+
+* Calling a macro without a value for an argument that has no default value is
+  deprecated as of Twig 3.29; such an argument will be required in Twig 4.0
+  (today it silently defaults to ``null``). To keep an argument optional, give
+  it an explicit default value (e.g. ``{% macro input(name, value = null) %}``).
+
+* Calling a macro (or testing it with the ``defined`` test) with a name whose
+  case differs from its definition (e.g. calling ``input`` as ``INPUT``) is
+  deprecated as of Twig 3.29; macro names will be case-sensitive in Twig 4.0.
+  Use the name exactly as defined.
+
+* Resolving a macro through a ``macro_``-prefixed name (e.g. via a
+  ``Twig\Node\Expression\MacroReferenceExpression`` node built with
+  ``macro_input``) is deprecated as of Twig 3.29 and will not resolve in Twig
+  4.0; pass the bare macro name instead.
+
 Filters
 -------
 
@@ -302,12 +369,59 @@ Sandbox
 
 * Having the ``extends`` and ``use`` tags allowed by default in a sandbox is
   deprecated as of Twig 3.12. You will need to explicitly allow them if needed
-  in 4.0.
+  in 4.0. To opt-in to the 4.0 behavior now (so the tags need to be
+  allow-listed or get rejected), enable strict mode on the security policy by
+  calling ``$policy->setStrict(true)``.
 
-* Deprecate the ``sandbox`` tag, use the ``sandboxed`` option of the
-  ``include`` function instead:
+* Having the ``parent``, ``block``, and ``attribute`` functions allowed by
+  default in a sandbox is deprecated as of Twig 3.27. You will need to
+  explicitly allow them if needed in 4.0. The same ``setStrict(true)`` toggle
+  on ``Twig\Sandbox\SecurityPolicy`` opts-in to the 4.0 behavior for these
+  functions too.
 
-  Before::
+* Not implementing the ``isAlwaysAllowedInSandbox()`` method in
+  ``Twig\TwigCallableInterface`` implementations (``TwigFilter``,
+  ``TwigFunction``, ``TwigTest``) and in
+  ``Twig\TokenParser\TokenParserInterface`` implementations is deprecated as
+  of Twig 3.28. This method will be added to both interfaces in Twig 4.0. It
+  returns ``true`` when the filter, function, test, or tag is always allowed
+  in a sandboxed template, regardless of the security policy allow-list.
+  Custom callables extending ``Twig\AbstractTwigCallable`` and custom token
+  parsers extending ``Twig\TokenParser\AbstractTokenParser`` inherit a
+  default implementation that returns ``false``.
+
+* Having the ``constant`` test and user-defined tests always allowed by default
+  in a sandbox is deprecated as of Twig 3.28. You will need to explicitly allow
+  them via the new ``allowedTests`` parameter of ``Twig\Sandbox\SecurityPolicy``
+  (or via ``setAllowedTests()``) in 4.0. The same ``setStrict(true)`` toggle
+  opts-in to the 4.0 behavior for tests too. The other built-in tests
+  (``empty``, ``defined``, ``even``, ``same as``, ``iterable``, etc.) are
+  flagged as always allowed and do not trigger this deprecation.
+
+* Not declaring a 4th ``array $tests`` argument in
+  ``Twig\Sandbox\SecurityPolicyInterface::checkSecurity()`` implementations is
+  deprecated as of Twig 3.28. The argument will be part of the interface
+  signature in 4.0.
+
+* Not passing the ``$tests`` argument to
+  ``Twig\Sandbox\SecurityPolicy::checkSecurity()`` is deprecated as of Twig
+  3.28; it will be required in 4.0.
+
+* Passing a ``Twig\Source`` as the 4th argument of
+  ``Twig\Extension\SandboxExtension::checkSecurity()`` is deprecated as of
+  Twig 3.28. The 4th argument is now an ``array`` of tests; pass the source
+  as the 5th argument instead.
+
+* The ``Twig\Sandbox\SourcePolicyInterface`` interface is deprecated as of Twig
+  3.27.0 with no replacement. Passing an instance to the
+  ``Twig\Extension\SandboxExtension`` constructor triggers a deprecation.
+
+* Deprecate the ``sandbox`` tag, use the ``Twig\Sandbox\Sandbox`` class
+  instead:
+
+  Before:
+
+  .. code-block:: twig
 
     {% sandbox %}
       {% include 'user_defined.html.twig' %}
@@ -315,7 +429,22 @@ Sandbox
 
   After::
 
-    {{ include('user_defined.html.twig', sandboxed: true) }}
+    echo $sandbox->render('user_defined.html.twig');
+
+* The ``Twig\Extension\SandboxExtension`` class is marked as internal as of
+  Twig 3.29 and should not be used directly anymore (no runtime deprecation is
+  triggered); use the ``Twig\Sandbox\Sandbox`` class to render untrusted
+  templates instead.
+
+* The ``sandboxed`` argument of the ``include`` function is deprecated as of
+  Twig 3.29. Render the untrusted template with the ``Twig\Sandbox\Sandbox``
+  class from PHP or the
+  :doc:`render_sandboxed() function <functions/render_sandboxed>` from a
+  trusted Twig template instead.
+
+* The ``enableSandbox()``, ``disableSandbox()``, and ``isSandboxedGlobally()``
+  methods of ``Twig\Extension\SandboxExtension`` are deprecated as of Twig
+  3.29 with no replacement: a ``Twig\Sandbox\Sandbox`` has no state to toggle.
 
 Testing Utilities
 -----------------

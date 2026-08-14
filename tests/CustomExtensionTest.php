@@ -20,6 +20,8 @@ namespace Twig\Tests;
  * file that was distributed with this source code.
  */
 
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Twig\Environment;
 use Twig\Extension\ExtensionInterface;
@@ -32,7 +34,8 @@ class CustomExtensionTest extends TestCase
      *
      * @dataProvider provideInvalidExtensions
      */
-    public function testGetInvalidOperators(ExtensionInterface $extension, $expectedExceptionMessage)
+    #[DataProvider('provideInvalidExtensions'), Group('legacy')]
+    public function testGetInvalidOperators(ExtensionInterface $extension, $expectedExceptionMessage): void
     {
         $env = new Environment(new ArrayLoader());
         $env->addExtension($extension);

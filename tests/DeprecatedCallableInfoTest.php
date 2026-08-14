@@ -20,6 +20,7 @@ namespace Twig\Tests;
  * file that was distributed with this source code.
  */
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Twig\DeprecatedCallableInfo;
 
@@ -28,7 +29,8 @@ class DeprecatedCallableInfoTest extends TestCase
     /**
      * @dataProvider provideTestsForTriggerDeprecation
      */
-    public function testTriggerDeprecation($expected, DeprecatedCallableInfo $info)
+    #[DataProvider('provideTestsForTriggerDeprecation')]
+    public function testTriggerDeprecation($expected, DeprecatedCallableInfo $info): void
     {
         $info->setType('function');
         $info->setName('foo');
@@ -59,7 +61,7 @@ class DeprecatedCallableInfoTest extends TestCase
         yield ['Since foo/bar 1.1: Twig Function "foo" is deprecated; use "alt_foo" instead in foo.twig at line 1.', new DeprecatedCallableInfo('foo/bar', '1.1', 'alt_foo')];
     }
 
-    public function testTriggerDeprecationWithoutFileOrLine()
+    public function testTriggerDeprecationWithoutFileOrLine(): void
     {
         $info = new DeprecatedCallableInfo('foo/bar', '1.1');
         $info->setType('function');

@@ -73,9 +73,9 @@ class GetAttrExpression extends AbstractExpression implements SupportDefinedTest
                     ->raw(' instanceof ArrayAccess ? (')
                     ->raw($var)
                     ->raw('[')
-                    ->subcompile($this->getNode('attribute'))
-                    ->raw('] ?? null) : null)')
                 ;
+                $this->compileArrayKey($compiler, $var);
+                $compiler->raw('] ?? null) : null)');
 
                 return;
             }
@@ -90,9 +90,9 @@ class GetAttrExpression extends AbstractExpression implements SupportDefinedTest
                 ->raw(', CoreExtension::ARRAY_LIKE_CLASSES, true) ? (')
                 ->raw($var)
                 ->raw('[')
-                ->subcompile($this->getNode('attribute'))
-                ->raw('] ?? null) : ')
             ;
+            $this->compileArrayKey($compiler, $var);
+            $compiler->raw('] ?? null) : ');
         }
 
         if ($this->getAttribute('ignore_strict_check')) {
@@ -160,8 +160,43 @@ class GetAttrExpression extends AbstractExpression implements SupportDefinedTest
 
     public function getStringCoercedChildNames(): array
     {
-        // for a method-like access, the host PHP method may coerce any of its arguments to string
-        return $this->hasNode('arguments') ? ['arguments'] : [];
+        $names = [];
+
+        // the host PHP method may coerce any argument to string
+        if ($this->hasNode('arguments')) {
+            $names[] = 'arguments';
+        }
+
+        // compileArrayKey() coerces a Stringable key; expose it so the sandbox checks __toString()
+        if (Template::ARRAY_CALL === $this->getAttribute('type')) {
+            $names[] = 'attribute';
+        }
+
+        return $names;
+    }
+
+    /**
+     * Coerces a Stringable array key to string so the optimized path matches
+     * CoreExtension::getAttribute(): only arrays coerce the key, while ArrayAccess
+     * objects (e.g. SplObjectStorage) receive it untouched. Scalars are left to
+     * PHP's native offset coercion.
+     */
+    private function compileArrayKey(Compiler $compiler, string $var): void
+    {
+        $attribute = $this->getNode('attribute');
+
+        if ($attribute instanceof ConstantExpression) {
+            $compiler->subcompile($attribute);
+
+            return;
+        }
+
+        $key = '$'.$compiler->getVarName();
+        $compiler
+            ->raw('(('.$key.' = ')
+            ->subcompile($attribute)
+            ->raw(') instanceof \Stringable && is_array('.$var.') ? (string) '.$key.' : '.$key.')')
+        ;
     }
 
     private function changeIgnoreStrictCheck(self $node): void

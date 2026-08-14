@@ -20,6 +20,7 @@ namespace Twig\Tests\NodeVisitor;
  * file that was distributed with this source code.
  */
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Twig\Environment;
 use Twig\Loader\ArrayLoader;
@@ -33,14 +34,14 @@ use Twig\Source;
 
 class OptimizerTest extends TestCase
 {
-    public function testConstructor()
+    public function testConstructor(): void
     {
         $this->expectNotToPerformAssertions();
 
         new OptimizerNodeVisitor(OptimizerNodeVisitor::OPTIMIZE_FOR);
     }
 
-    public function testRenderBlockOptimizer()
+    public function testRenderBlockOptimizer(): void
     {
         $env = new Environment(new ArrayLoader(), ['cache' => false, 'autoescape' => false]);
 
@@ -52,7 +53,7 @@ class OptimizerTest extends TestCase
         $this->assertTrue($node->getAttribute('output'));
     }
 
-    public function testRenderParentBlockOptimizer()
+    public function testRenderParentBlockOptimizer(): void
     {
         $env = new Environment(new ArrayLoader(), ['cache' => false, 'autoescape' => false]);
 
@@ -64,7 +65,7 @@ class OptimizerTest extends TestCase
         $this->assertTrue($node->getAttribute('output'));
     }
 
-    public function testForVarOptimizer()
+    public function testForVarOptimizer(): void
     {
         $env = new Environment(new ArrayLoader(), ['cache' => false, 'autoescape' => false]);
 
@@ -76,7 +77,7 @@ class OptimizerTest extends TestCase
         }
     }
 
-    public function checkForVarConfiguration(Node $node, $target)
+    public function checkForVarConfiguration(Node $node, $target): void
     {
         foreach ($node as $n) {
             if (NameExpression::class === $n::class && $target === $n->getAttribute('name')) {
@@ -90,7 +91,8 @@ class OptimizerTest extends TestCase
     /**
      * @dataProvider getTestsForForLoopOptimizer
      */
-    public function testForLoopOptimizer($template, $expected)
+    #[DataProvider('getTestsForForLoopOptimizer')]
+    public function testForLoopOptimizer($template, $expected): void
     {
         $env = new Environment(new ArrayLoader(), ['cache' => false]);
 

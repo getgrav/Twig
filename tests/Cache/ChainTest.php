@@ -20,6 +20,7 @@ namespace Twig\Tests\Cache;
  * file that was distributed with this source code.
  */
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Twig\Cache\ChainCache;
 use Twig\Cache\FilesystemCache;
@@ -51,7 +52,7 @@ class ChainTest extends TestCase
         }
     }
 
-    public function testLoadInA()
+    public function testLoadInA(): void
     {
         $cache = new FilesystemCache($this->directory.'/A');
         $key = $cache->generateKey('_test_', $this->className);
@@ -69,7 +70,7 @@ class ChainTest extends TestCase
         $this->assertTrue(class_exists($this->className, false));
     }
 
-    public function testLoadInB()
+    public function testLoadInB(): void
     {
         $cache = new FilesystemCache($this->directory.'/B');
         $key = $cache->generateKey('_test_', $this->className);
@@ -87,7 +88,7 @@ class ChainTest extends TestCase
         $this->assertTrue(class_exists($this->className, false));
     }
 
-    public function testLoadInBoth()
+    public function testLoadInBoth(): void
     {
         $cache = new FilesystemCache($this->directory.'/A');
         $key = $cache->generateKey('_test_', $this->className);
@@ -116,7 +117,7 @@ class ChainTest extends TestCase
         $this->assertTrue(class_exists($this->className, false));
     }
 
-    public function testLoadMissing()
+    public function testLoadMissing(): void
     {
         $this->assertFalse(class_exists($this->className, false));
 
@@ -125,7 +126,7 @@ class ChainTest extends TestCase
         $this->assertFalse(class_exists($this->className, false));
     }
 
-    public function testWrite()
+    public function testWrite(): void
     {
         $content = $this->generateSource();
 
@@ -152,7 +153,7 @@ class ChainTest extends TestCase
         $this->assertSame(file_get_contents($keyB), $content);
     }
 
-    public function testGetTimestampInA()
+    public function testGetTimestampInA(): void
     {
         $cache = new FilesystemCache($this->directory.'/A');
         $key = $cache->generateKey('_test_', $this->className);
@@ -167,7 +168,7 @@ class ChainTest extends TestCase
         $this->assertSame(1234567890, $this->cache->getTimestamp($this->key));
     }
 
-    public function testGetTimestampInB()
+    public function testGetTimestampInB(): void
     {
         $cache = new FilesystemCache($this->directory.'/B');
         $key = $cache->generateKey('_test_', $this->className);
@@ -182,7 +183,7 @@ class ChainTest extends TestCase
         $this->assertSame(1234567890, $this->cache->getTimestamp($this->key));
     }
 
-    public function testGetTimestampInBoth()
+    public function testGetTimestampInBoth(): void
     {
         $cacheA = new FilesystemCache($this->directory.'/A');
         $keyA = $cacheA->generateKey('_test_', $this->className);
@@ -207,7 +208,7 @@ class ChainTest extends TestCase
         $this->assertSame(1234567890, $this->cache->getTimestamp($this->key));
     }
 
-    public function testGetTimestampMissingFile()
+    public function testGetTimestampMissingFile(): void
     {
         $this->assertSame(0, $this->cache->getTimestamp($this->key));
     }
@@ -215,7 +216,8 @@ class ChainTest extends TestCase
     /**
      * @dataProvider provideInput
      */
-    public function testGenerateKey($expected, $input)
+    #[DataProvider('provideInput')]
+    public function testGenerateKey($expected, $input): void
     {
         $cache = new ChainCache([]);
         $this->assertSame($expected, $cache->generateKey($input, static::class));

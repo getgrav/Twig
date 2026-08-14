@@ -20,6 +20,8 @@ namespace Twig\Tests\Node;
  * file that was distributed with this source code.
  */
 
+use PHPUnit\Framework\Attributes\Group;
+use Symfony\Bridge\PhpUnit\ExpectDeprecationTrait;
 use Twig\Environment;
 use Twig\Error\RuntimeError;
 use Twig\Loader\ArrayLoader;
@@ -28,9 +30,10 @@ use Twig\Node\EmptyNode;
 use Twig\Node\Expression\ConstantExpression;
 use Twig\Node\Expression\Ternary\ConditionalTernary;
 use Twig\Node\Expression\Variable\AssignContextVariable;
-use Twig\Node\Expression\Variable\AssignTemplateVariable;
-use Twig\Node\Expression\Variable\TemplateVariable;
+use Twig\Node\Expression\Variable\AssignMacroVariable;
+use Twig\Node\Expression\Variable\MacroVariable;
 use Twig\Node\ImportNode;
+use Twig\Node\MacrosNode;
 use Twig\Node\ModuleNode;
 use Twig\Node\Nodes;
 use Twig\Node\SetNode;
@@ -40,12 +43,14 @@ use Twig\Test\NodeTestCase;
 
 class ModuleTest extends NodeTestCase
 {
-    public function testConstructor()
+    use ExpectDeprecationTrait;
+
+    public function testConstructor(): void
     {
         $body = new BodyNode([new TextNode('foo', 1)]);
         $parent = new ConstantExpression('layout.twig', 1);
         $blocks = new EmptyNode();
-        $macros = new EmptyNode();
+        $macros = new MacrosNode();
         $traits = new EmptyNode();
         $source = new Source('{{ foo }}', 'foo.twig');
         $node = new ModuleNode($body, $parent, $blocks, $macros, $traits, new EmptyNode(), $source);
@@ -57,7 +62,22 @@ class ModuleTest extends NodeTestCase
         $this->assertEquals($source->getName(), $node->getTemplateName());
     }
 
-    public function testUseTagTemplateNameDoesNotInjectPhpInCompiledOutput()
+    /**
+     * @group legacy
+     */
+    #[Group('legacy')]
+    public function testConstructorAcceptsDeprecatedMacrosNode(): void
+    {
+        $macros = new EmptyNode();
+
+        $this->expectDeprecation('Since twig/twig 3.29: Not passing a "Twig\\Node\\MacrosNode" instance as the "macros" argument of the "Twig\\Node\\ModuleNode" constructor is deprecated.');
+
+        $node = new ModuleNode(new BodyNode([]), null, new EmptyNode(), $macros, new EmptyNode(), new EmptyNode(), new Source('', 'index'));
+
+        $this->assertInstanceOf(MacrosNode::class, $node->getNode('macros'));
+    }
+
+    public function testUseTagTemplateNameDoesNotInjectPhpInCompiledOutput(): void
     {
         $evilName = "evil' . print('BAD-EOL') . '.twig";
         $loader = new ArrayLoader([
@@ -89,7 +109,7 @@ class ModuleTest extends NodeTestCase
         $body = new BodyNode([new TextNode('foo', 1)]);
         $extends = null;
         $blocks = new EmptyNode();
-        $macros = new EmptyNode();
+        $macros = new MacrosNode();
         $traits = new EmptyNode();
         $source = new Source('{{ foo }}', 'foo.twig');
 
@@ -102,11 +122,13 @@ use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
 use Twig\Extension\CoreExtension;
 use Twig\Extension\SandboxExtension;
+use Twig\MacroNamespace;
 use Twig\Markup;
 use Twig\Sandbox\SecurityError;
 use Twig\Sandbox\SecurityNotAllowedTagError;
 use Twig\Sandbox\SecurityNotAllowedFilterError;
 use Twig\Sandbox\SecurityNotAllowedFunctionError;
+use Twig\Sandbox\SecurityNotAllowedTestError;
 use Twig\Source;
 use Twig\Template;
 use Twig\TemplateWrapper;
@@ -116,7 +138,7 @@ class __TwigTemplate_%x extends Template
 {
     private Source \$source;
     /**
-     * @var array<string, Template>
+     * @var array<string, MacroNamespace>
      */
     private array \$macros = [];
 
@@ -153,7 +175,7 @@ class __TwigTemplate_%x extends Template
      */
     public function getDebugInfo(): array
     {
-        return array (  42 => 1,);
+        return array (  44 => 1,);
     }
 
     public function getSourceContext(): Source
@@ -163,7 +185,7 @@ class __TwigTemplate_%x extends Template
 }
 EOF, $twig, true];
 
-        $import = new ImportNode(new ConstantExpression('foo.twig', 1), new AssignTemplateVariable(new TemplateVariable('macro', 2), true), 2);
+        $import = new ImportNode(new ConstantExpression('foo.twig', 1), new AssignMacroVariable(new MacroVariable('macro', 2), true), 2);
 
         $body = new BodyNode([$import]);
         $extends = new ConstantExpression('layout.twig', 1);
@@ -177,11 +199,13 @@ use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
 use Twig\Extension\CoreExtension;
 use Twig\Extension\SandboxExtension;
+use Twig\MacroNamespace;
 use Twig\Markup;
 use Twig\Sandbox\SecurityError;
 use Twig\Sandbox\SecurityNotAllowedTagError;
 use Twig\Sandbox\SecurityNotAllowedFilterError;
 use Twig\Sandbox\SecurityNotAllowedFunctionError;
+use Twig\Sandbox\SecurityNotAllowedTestError;
 use Twig\Source;
 use Twig\Template;
 use Twig\TemplateWrapper;
@@ -191,7 +215,7 @@ class __TwigTemplate_%x extends Template
 {
     private Source \$source;
     /**
-     * @var array<string, Template>
+     * @var array<string, MacroNamespace>
      */
     private array \$macros = [];
 
@@ -215,7 +239,7 @@ class __TwigTemplate_%x extends Template
     {
         \$macros = \$this->macros;
         // line 2
-        \$macros["macro"] = \$this->macros["macro"] = \$this->load("foo.twig", 2)->unwrap();
+        \$macros["macro"] = \$this->macros["macro"] = \$this->load("foo.twig", 2)->unwrap()->getMacroNamespace();
         // line 1
         \$this->parent = \$this->load("layout.twig", 1);
         yield from \$this->parent->unwrap()->yield(\$context, array_merge(\$this->blocks, \$blocks));
@@ -242,7 +266,7 @@ class __TwigTemplate_%x extends Template
      */
     public function getDebugInfo(): array
     {
-        return array (  48 => 1,  46 => 2,  39 => 1,);
+        return array (  50 => 1,  48 => 2,  41 => 1,);
     }
 
     public function getSourceContext(): Source
@@ -271,11 +295,13 @@ use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
 use Twig\Extension\CoreExtension;
 use Twig\Extension\SandboxExtension;
+use Twig\MacroNamespace;
 use Twig\Markup;
 use Twig\Sandbox\SecurityError;
 use Twig\Sandbox\SecurityNotAllowedTagError;
 use Twig\Sandbox\SecurityNotAllowedFilterError;
 use Twig\Sandbox\SecurityNotAllowedFunctionError;
+use Twig\Sandbox\SecurityNotAllowedTestError;
 use Twig\Source;
 use Twig\Template;
 use Twig\TemplateWrapper;
@@ -285,7 +311,7 @@ class __TwigTemplate_%x extends Template
 {
     private Source \$source;
     /**
-     * @var array<string, Template>
+     * @var array<string, MacroNamespace>
      */
     private array \$macros = [];
 
@@ -335,7 +361,7 @@ class __TwigTemplate_%x extends Template
      */
     public function getDebugInfo(): array
     {
-        return array (  48 => 2,  46 => 4,  39 => 2,);
+        return array (  50 => 2,  48 => 4,  41 => 2,);
     }
 
     public function getSourceContext(): Source

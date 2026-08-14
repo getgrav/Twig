@@ -1,0 +1,14 @@
+--TEST--
+conditional "block" tag with "extends" tag (condition is true, GRAV FORK)
+--TEMPLATE--
+{% extends "layout.twig" %}
+
+{% if true %}
+    {% block content %}FOO{% endblock %}
+{% endif %}
+--TEMPLATE(layout.twig)--
+[{% block content %}{% endblock %}]
+--DATA--
+return []
+--EXPECT--
+[FOO]

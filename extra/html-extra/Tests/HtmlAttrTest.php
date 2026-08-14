@@ -24,7 +24,7 @@ class HtmlAttrTest extends TestCase
     /**
      * @dataProvider htmlAttrProvider
      */
-    public function testPrintingAttributes(string $expected, array $inputs)
+    public function testPrintingAttributes(string $expected, array $inputs): void
     {
         $result = HtmlExtension::htmlAttr(new Environment(new ArrayLoader()), ...$inputs);
 
@@ -247,9 +247,45 @@ class HtmlAttrTest extends TestCase
                 ['value' => new StringableStub('stringable-object')],
             ],
         ];
+
+        // Backed enums are rendered using their backing value
+        yield 'string-backed enum renders its value' => [
+            'class="card"',
+            [
+                ['class' => StringBackedStub::CARD],
+            ],
+        ];
+
+        yield 'int-backed enum renders its value' => [
+            'tabindex="10"',
+            [
+                ['tabindex' => IntBackedStub::HIGH],
+            ],
+        ];
+
+        yield 'string-backed enum in data-* attribute renders its value without JSON encoding' => [
+            'data-view="card"',
+            [
+                ['data-view' => StringBackedStub::CARD],
+            ],
+        ];
+
+        yield 'int-backed enum in data-* attribute renders its value' => [
+            'data-level="10"',
+            [
+                ['data-level' => IntBackedStub::HIGH],
+            ],
+        ];
+
+        yield 'backed enum in aria-* attribute renders its value' => [
+            'aria-label="card"',
+            [
+                ['aria-label' => StringBackedStub::CARD],
+            ],
+        ];
     }
 
-    public function testIterableObjectCastedToArray()
+    public function testIterableObjectCastedToArray(): void
     {
         /*
             This test case demonstrates how objects could e. g. implement helper logic
@@ -271,7 +307,7 @@ class HtmlAttrTest extends TestCase
         self::assertSame('data-controller="dropdown tooltip" data-action="click-&gt;dropdown#toggle mouseover-&gt;tooltip#show"', $result);
     }
 
-    public function testDataAttributeWithNonJsonEncodableValueThrowsRuntimeError()
+    public function testDataAttributeWithNonJsonEncodableValueThrowsRuntimeError(): void
     {
         $this->expectException(RuntimeError::class);
         $this->expectExceptionMessage('The "data-bad" attribute value cannot be JSON encoded.');
@@ -282,7 +318,7 @@ class HtmlAttrTest extends TestCase
         );
     }
 
-    public function testNonStringableObjectAsAttributeValueThrowsRuntimeError()
+    public function testNonStringableObjectAsAttributeValueThrowsRuntimeError(): void
     {
         $this->expectException(RuntimeError::class);
         $this->expectExceptionMessage('The "title" attribute value should be a scalar, an iterable, or an object implementing "Stringable"');
@@ -316,4 +352,16 @@ class AttributeValueStub implements AttributeValueInterface
     {
         return $this->value;
     }
+}
+
+enum StringBackedStub: string
+{
+    case CARD = 'card';
+    case TABLE = 'table';
+}
+
+enum IntBackedStub: int
+{
+    case LOW = 1;
+    case HIGH = 10;
 }

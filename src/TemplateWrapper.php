@@ -51,10 +51,7 @@ final class TemplateWrapper
         return $this->template->render($context);
     }
 
-    /**
-     * @return void
-     */
-    public function display(array $context = [])
+    public function display(array $context = []): void
     {
         // using func_get_args() allows to not expose the blocks argument
         // as it should only be used by internal code
@@ -79,10 +76,7 @@ final class TemplateWrapper
         return $this->template->renderBlock($name, $context + $this->env->getGlobals());
     }
 
-    /**
-     * @return void
-     */
-    public function displayBlock(string $name, array $context = [])
+    public function displayBlock(string $name, array $context = []): void
     {
         $context += $this->env->getGlobals();
         foreach ($this->template->yieldBlock($name, $context) as $data) {

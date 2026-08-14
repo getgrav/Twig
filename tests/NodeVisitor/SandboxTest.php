@@ -29,6 +29,7 @@ use Twig\Node\CoercesChildrenToStringInterface;
 use Twig\Node\EmptyNode;
 use Twig\Node\Expression\AbstractExpression;
 use Twig\Node\Expression\Variable\ContextVariable;
+use Twig\Node\MacrosNode;
 use Twig\Node\ModuleNode;
 use Twig\Node\Node;
 use Twig\Node\PrintNode;
@@ -38,12 +39,12 @@ use Twig\Source;
 
 class SandboxTest extends TestCase
 {
-    public function testGeneratorExpression()
+    public function testGeneratorExpression(): void
     {
         $env = new Environment(new ArrayLoader());
         $expr = new ContextVariable('foo', 1);
         $expr->setAttribute('is_generator', true);
-        $node = new ModuleNode(new BodyNode([new PrintNode($expr, 1)]), null, new EmptyNode(), new EmptyNode(), new EmptyNode(), new EmptyNode(), new Source('foo', 'foo'));
+        $node = new ModuleNode(new BodyNode([new PrintNode($expr, 1)]), null, new EmptyNode(), new MacrosNode(), new EmptyNode(), new EmptyNode(), new Source('foo', 'foo'));
         $traverser = new NodeTraverser($env, [new SandboxNodeVisitor($env)]);
         $node = $traverser->traverse($node);
 
@@ -51,13 +52,13 @@ class SandboxTest extends TestCase
         $this->assertSame("// line 1\nyield from (\$context[\"foo\"] ?? null);\n", $env->compile($node->getNode('body')));
     }
 
-    public function testCustomNodeImplementingCoercesChildrenToStringInterfaceIsWrapped()
+    public function testCustomNodeImplementingCoercesChildrenToStringInterfaceIsWrapped(): void
     {
         $env = new Environment(new ArrayLoader());
         $custom = new CustomCoercingExpression(new ContextVariable('foo', 1), new ContextVariable('bar', 1), 1);
         // wrap inside a PrintNode so it lives in a module; the wrapping must happen on the
         // custom node itself regardless of the print context
-        $node = new ModuleNode(new BodyNode([new PrintNode($custom, 1)]), null, new EmptyNode(), new EmptyNode(), new EmptyNode(), new EmptyNode(), new Source('foo', 'foo'));
+        $node = new ModuleNode(new BodyNode([new PrintNode($custom, 1)]), null, new EmptyNode(), new MacrosNode(), new EmptyNode(), new EmptyNode(), new Source('foo', 'foo'));
         $traverser = new NodeTraverser($env, [new SandboxNodeVisitor($env)]);
         $node = $traverser->traverse($node);
 
@@ -66,11 +67,11 @@ class SandboxTest extends TestCase
         $this->assertInstanceOf(CheckToStringNode::class, $custom->getNode('right'));
     }
 
-    public function testCustomNonExpressionNodeImplementingCoercesChildrenToStringInterfaceIsWrapped()
+    public function testCustomNonExpressionNodeImplementingCoercesChildrenToStringInterfaceIsWrapped(): void
     {
         $env = new Environment(new ArrayLoader());
         $custom = new CustomCoercingNode(['expr' => new ContextVariable('foo', 1)], [], 1);
-        $node = new ModuleNode(new BodyNode([$custom]), null, new EmptyNode(), new EmptyNode(), new EmptyNode(), new EmptyNode(), new Source('foo', 'foo'));
+        $node = new ModuleNode(new BodyNode([$custom]), null, new EmptyNode(), new MacrosNode(), new EmptyNode(), new EmptyNode(), new Source('foo', 'foo'));
         $traverser = new NodeTraverser($env, [new SandboxNodeVisitor($env)]);
         $node = $traverser->traverse($node);
 
@@ -78,12 +79,12 @@ class SandboxTest extends TestCase
         $this->assertInstanceOf(CheckToStringNode::class, $custom->getNode('expr'));
     }
 
-    public function testSelfIsNeverWrapped()
+    public function testSelfIsNeverWrapped(): void
     {
         $env = new Environment(new ArrayLoader());
         $self = new ContextVariable('_self', 1);
         $custom = new CustomCoercingNode(['expr' => $self], [], 1);
-        $node = new ModuleNode(new BodyNode([$custom]), null, new EmptyNode(), new EmptyNode(), new EmptyNode(), new EmptyNode(), new Source('foo', 'foo'));
+        $node = new ModuleNode(new BodyNode([$custom]), null, new EmptyNode(), new MacrosNode(), new EmptyNode(), new EmptyNode(), new Source('foo', 'foo'));
         $traverser = new NodeTraverser($env, [new SandboxNodeVisitor($env)]);
         $node = $traverser->traverse($node);
 

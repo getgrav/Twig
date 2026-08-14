@@ -33,7 +33,7 @@ use Twig\TwigFilter;
 
 class FilterTest extends NodeTestCase
 {
-    public function testConstructor()
+    public function testConstructor(): void
     {
         $expr = new ConstantExpression('foo', 1);
         $filter = new TwigFilter($name = 'upper');
@@ -89,11 +89,11 @@ class FilterTest extends NodeTestCase
 
         // needs sandbox
         $node = self::createFilter($environment, $string, 'bar_sandbox');
-        $tests[] = [$node, 'Twig\Tests\Node\Expression\twig_tests_filter_sandbox($this->env->hasExtension(\Twig\Extension\SandboxExtension::class) && $this->env->getExtension(\Twig\Extension\SandboxExtension::class)->isSandboxed($this->source), "abc")', $environment];
+        $tests[] = [$node, 'Twig\Tests\Node\Expression\twig_tests_filter_sandbox($this->env->hasExtension(\Twig\Extension\SandboxExtension::class) && $this->env->getExtension(\Twig\Extension\SandboxExtension::class)->getChecker()->isSandboxed($this->source), "abc")', $environment];
 
         // needs charset, environment, context, and sandbox
         $node = self::createFilter($environment, $string, 'bar_all');
-        $tests[] = [$node, 'Twig\Tests\Node\Expression\twig_tests_filter_all($this->env->getCharset(), $this->env, $context, $this->env->hasExtension(\Twig\Extension\SandboxExtension::class) && $this->env->getExtension(\Twig\Extension\SandboxExtension::class)->isSandboxed($this->source), "abc")', $environment];
+        $tests[] = [$node, 'Twig\Tests\Node\Expression\twig_tests_filter_all($this->env->getCharset(), $this->env, $context, $this->env->hasExtension(\Twig\Extension\SandboxExtension::class) && $this->env->getExtension(\Twig\Extension\SandboxExtension::class)->getChecker()->isSandboxed($this->source), "abc")', $environment];
 
         // needs environment
         $node = self::createFilter($environment, $string, 'bar');
@@ -144,7 +144,7 @@ class FilterTest extends NodeTestCase
         return $tests;
     }
 
-    public function testCompileWithWrongNamedArgumentName()
+    public function testCompileWithWrongNamedArgumentName(): void
     {
         $date = new ConstantExpression(0, 1);
         $node = $this->createFilter($this->getEnvironment(), $date, 'date', [
@@ -159,7 +159,7 @@ class FilterTest extends NodeTestCase
         $compiler->compile($node);
     }
 
-    public function testCompileWithMissingNamedArgument()
+    public function testCompileWithMissingNamedArgument(): void
     {
         $value = new ConstantExpression(0, 1);
         $node = $this->createFilter($this->getEnvironment(), $value, 'replace', [
@@ -208,36 +208,36 @@ class FilterTest extends NodeTestCase
                 ];
             }
 
-            public function foo()
+            public function foo(): void
             {
             }
 
-            protected function foobar()
+            protected function foobar(): void
             {
             }
         };
     }
 }
 
-function twig_tests_filter_dummy()
+function twig_tests_filter_dummy(): void
 {
 }
 
-function twig_tests_filter_barbar($context, $string, $arg1 = null, $arg2 = null, array $args = [])
+function twig_tests_filter_barbar($context, $string, $arg1 = null, $arg2 = null, array $args = []): void
 {
 }
 
-function twig_tests_filter_sandbox(bool $isSandboxed, $string)
+function twig_tests_filter_sandbox(bool $isSandboxed, $string): void
 {
 }
 
-function twig_tests_filter_all(string $charset, Environment $env, array $context, bool $isSandboxed, $string)
+function twig_tests_filter_all(string $charset, Environment $env, array $context, bool $isSandboxed, $string): void
 {
 }
 
 class ChildMagicCallStub extends ParentMagicCallStub
 {
-    public static function identifier()
+    public static function identifier(): string
     {
         return 'child';
     }
@@ -245,7 +245,7 @@ class ChildMagicCallStub extends ParentMagicCallStub
 
 class ParentMagicCallStub
 {
-    public static function identifier()
+    public static function identifier(): string
     {
         throw new \Exception('Identifier has not been defined.');
     }

@@ -20,6 +20,7 @@ namespace Twig\Tests\Runtime;
  * file that was distributed with this source code.
  */
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Twig\Error\RuntimeError;
 use Twig\Runtime\EscaperRuntime;
@@ -165,35 +166,35 @@ class EscaperRuntimeTest extends TestCase
         ' ' => '\\20 ',
     ];
 
-    public function testHtmlEscapingConvertsSpecialChars()
+    public function testHtmlEscapingConvertsSpecialChars(): void
     {
         foreach ($this->htmlSpecialChars as $key => $value) {
             $this->assertEquals($value, (new EscaperRuntime())->escape($key, 'html'), 'Failed to escape: '.$key);
         }
     }
 
-    public function testHtmlAttributeEscapingConvertsSpecialChars()
+    public function testHtmlAttributeEscapingConvertsSpecialChars(): void
     {
         foreach ($this->htmlAttrSpecialChars as $key => $value) {
             $this->assertEquals($value, (new EscaperRuntime())->escape($key, 'html_attr'), 'Failed to escape: '.$key);
         }
     }
 
-    public function testHtmlAttributeRelaxedEscapingConvertsSpecialChars()
+    public function testHtmlAttributeRelaxedEscapingConvertsSpecialChars(): void
     {
         foreach ($this->htmlAttrSpecialChars as $key => $value) {
             $this->assertEquals($value, (new EscaperRuntime())->escape($key, 'html_attr_relaxed'), 'Failed to escape: '.$key);
         }
     }
 
-    public function testJavascriptEscapingConvertsSpecialChars()
+    public function testJavascriptEscapingConvertsSpecialChars(): void
     {
         foreach ($this->jsSpecialChars as $key => $value) {
             $this->assertEquals($value, (new EscaperRuntime())->escape($key, 'js'), 'Failed to escape: '.$key);
         }
     }
 
-    public function testJavascriptEscapingConvertsSpecialCharsWithInternalEncoding()
+    public function testJavascriptEscapingConvertsSpecialCharsWithInternalEncoding(): void
     {
         $previousInternalEncoding = mb_internal_encoding();
         try {
@@ -208,34 +209,34 @@ class EscaperRuntimeTest extends TestCase
         }
     }
 
-    public function testJavascriptEscapingReturnsStringIfZeroLength()
+    public function testJavascriptEscapingReturnsStringIfZeroLength(): void
     {
         $this->assertEquals('', (new EscaperRuntime())->escape('', 'js'));
     }
 
-    public function testJavascriptEscapingReturnsStringIfContainsOnlyDigits()
+    public function testJavascriptEscapingReturnsStringIfContainsOnlyDigits(): void
     {
         $this->assertEquals('123', (new EscaperRuntime())->escape('123', 'js'));
     }
 
-    public function testCssEscapingConvertsSpecialChars()
+    public function testCssEscapingConvertsSpecialChars(): void
     {
         foreach ($this->cssSpecialChars as $key => $value) {
             $this->assertEquals($value, (new EscaperRuntime())->escape($key, 'css'), 'Failed to escape: '.$key);
         }
     }
 
-    public function testCssEscapingReturnsStringIfZeroLength()
+    public function testCssEscapingReturnsStringIfZeroLength(): void
     {
         $this->assertEquals('', (new EscaperRuntime())->escape('', 'css'));
     }
 
-    public function testCssEscapingReturnsStringIfContainsOnlyDigits()
+    public function testCssEscapingReturnsStringIfContainsOnlyDigits(): void
     {
         $this->assertEquals('123', (new EscaperRuntime())->escape('123', 'css'));
     }
 
-    public function testUrlEscapingConvertsSpecialChars()
+    public function testUrlEscapingConvertsSpecialChars(): void
     {
         foreach ($this->urlSpecialChars as $key => $value) {
             $this->assertEquals($value, (new EscaperRuntime())->escape($key, 'url'), 'Failed to escape: '.$key);
@@ -250,7 +251,7 @@ class EscaperRuntimeTest extends TestCase
      * Only testing the first few 2 ranges on this prot. function as that's all these
      * other range tests require.
      */
-    public function testUnicodeCodepointConversionToUtf8()
+    public function testUnicodeCodepointConversionToUtf8(): void
     {
         $expected = ' ~ޙ';
         $codepoints = [0x20, 0x7E, 0x799];
@@ -291,7 +292,7 @@ class EscaperRuntimeTest extends TestCase
         throw new \Exception('Codepoint requested outside of Unicode range.');
     }
 
-    public function testJavascriptEscapingEscapesOwaspRecommendedRanges()
+    public function testJavascriptEscapingEscapesOwaspRecommendedRanges(): void
     {
         $immune = [',', '.', '_']; // Exceptions to escaping ranges
         for ($chr = 0; $chr < 0xFF; ++$chr) {
@@ -314,7 +315,7 @@ class EscaperRuntimeTest extends TestCase
         }
     }
 
-    public function testHtmlAttributeEscapingEscapesOwaspRecommendedRanges()
+    public function testHtmlAttributeEscapingEscapesOwaspRecommendedRanges(): void
     {
         $immune = [',', '.', '-', '_']; // Exceptions to escaping ranges
         for ($chr = 0; $chr < 0xFF; ++$chr) {
@@ -337,7 +338,7 @@ class EscaperRuntimeTest extends TestCase
         }
     }
 
-    public function testHtmlAttributeRelaxedEscapingEscapesOwaspRecommendedRanges()
+    public function testHtmlAttributeRelaxedEscapingEscapesOwaspRecommendedRanges(): void
     {
         $immune = [',', '.', '-', '_', ':', '@', '[', ']']; // Exceptions to escaping ranges
         for ($chr = 0; $chr < 0xFF; ++$chr) {
@@ -357,7 +358,7 @@ class EscaperRuntimeTest extends TestCase
         }
     }
 
-    public function testCssEscapingEscapesOwaspRecommendedRanges()
+    public function testCssEscapingEscapesOwaspRecommendedRanges(): void
     {
         // CSS has no exceptions to escaping ranges
         for ($chr = 0; $chr < 0xFF; ++$chr) {
@@ -376,7 +377,7 @@ class EscaperRuntimeTest extends TestCase
         }
     }
 
-    public function testUnknownCustomEscaper()
+    public function testUnknownCustomEscaper(): void
     {
         $this->expectException(RuntimeError::class);
 
@@ -386,7 +387,8 @@ class EscaperRuntimeTest extends TestCase
     /**
      * @dataProvider provideCustomEscaperCases
      */
-    public function testCustomEscaper($expected, $string, $strategy, $charset)
+    #[DataProvider('provideCustomEscaperCases')]
+    public function testCustomEscaper($expected, $string, $strategy, $charset): void
     {
         $escaper = new EscaperRuntime();
         $escaper->setEscaper('foo', 'Twig\Tests\Runtime\escaper');
@@ -405,7 +407,8 @@ class EscaperRuntimeTest extends TestCase
     /**
      * @dataProvider provideObjectsForEscaping
      */
-    public function testObjectEscaping(string $escapedHtml, string $escapedJs, array $safeClasses)
+    #[DataProvider('provideObjectsForEscaping')]
+    public function testObjectEscaping(string $escapedHtml, string $escapedJs, array $safeClasses): void
     {
         $obj = new Extension_TestClass();
         $escaper = new EscaperRuntime();

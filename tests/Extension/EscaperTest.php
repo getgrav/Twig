@@ -20,6 +20,8 @@ namespace Twig\Tests;
  * file that was distributed with this source code.
  */
 
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Twig\Environment;
 use Twig\Extension\EscaperExtension;
@@ -34,7 +36,8 @@ class EscaperTest extends TestCase
      *
      * @group legacy
      */
-    public function testCustomEscaper($expected, $string, $strategy)
+    #[DataProvider('provideCustomEscaperCases'), Group('legacy')]
+    public function testCustomEscaper($expected, $string, $strategy): void
     {
         $twig = new Environment(new ArrayLoader());
         $escaperExt = $twig->getExtension(EscaperExtension::class);
@@ -56,7 +59,8 @@ class EscaperTest extends TestCase
      *
      * @group legacy
      */
-    public function testCustomEscaperWithoutCallingSetEscaperRuntime($expected, $string, $strategy)
+    #[DataProvider('provideCustomEscaperCases'), Group('legacy')]
+    public function testCustomEscaperWithoutCallingSetEscaperRuntime($expected, $string, $strategy): void
     {
         $twig = new Environment(new ArrayLoader());
         $escaperExt = $twig->getExtension(EscaperExtension::class);
@@ -67,7 +71,8 @@ class EscaperTest extends TestCase
     /**
      * @group legacy
      */
-    public function testCustomEscapersOnMultipleEnvs()
+    #[Group('legacy')]
+    public function testCustomEscapersOnMultipleEnvs(): void
     {
         $env1 = new Environment(new ArrayLoader());
         $escaperExt1 = $env1->getExtension(EscaperExtension::class);
@@ -84,7 +89,8 @@ class EscaperTest extends TestCase
     /**
      * @group legacy
      */
-    public function testSafeClassesUseCustomRuntimeLoader()
+    #[Group('legacy')]
+    public function testSafeClassesUseCustomRuntimeLoader(): void
     {
         $runtime = new EscaperRuntime();
         $twig = new Environment(new ArrayLoader());
@@ -99,7 +105,7 @@ class EscaperTest extends TestCase
         $this->assertArrayHasKey('ThisClassIsSafe', $runtime->safeClasses);
     }
 
-    public function testLastModified()
+    public function testLastModified(): void
     {
         $this->assertGreaterThan(1000000000, (new EscaperExtension())->getLastModified());
     }

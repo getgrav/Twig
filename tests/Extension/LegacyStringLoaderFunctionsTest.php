@@ -11,6 +11,7 @@
 
 namespace Twig\Tests\Extension;
 
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Twig\Environment;
 use Twig\Extension\StringLoaderExtension;
@@ -19,9 +20,10 @@ use Twig\Loader\ArrayLoader;
 /**
  * @group legacy
  */
+#[Group('legacy')]
 class LegacyStringLoaderFunctionsTest extends TestCase
 {
-    public function testTemplateFromString()
+    public function testTemplateFromString(): void
     {
         $env = new Environment(new ArrayLoader());
 

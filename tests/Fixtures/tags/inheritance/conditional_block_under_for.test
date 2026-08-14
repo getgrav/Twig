@@ -1,0 +1,14 @@
+--TEST--
+"block" tag under a "for" tag is still rejected (GRAV FORK only makes "if" transparent)
+--TEMPLATE--
+{% extends "layout.twig" %}
+
+{% for i in 1..2 %}
+    {% block content %}FOO{% endblock %}
+{% endfor %}
+--TEMPLATE(layout.twig)--
+{% block content %}{% endblock %}
+--DATA--
+return []
+--EXCEPTION--
+Twig\Error\SyntaxError: A "block" tag cannot be under a "for" tag (line 4) in "index.twig" at line 5.

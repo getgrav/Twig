@@ -11,6 +11,7 @@
 
 namespace Twig\Tests\Extension;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Twig\DeprecatedCallableInfo;
 use Twig\Error\RuntimeError;
@@ -28,7 +29,8 @@ class AttributeExtensionTest extends TestCase
     /**
      * @dataProvider provideFilters
      */
-    public function testFilter(string $name, string $method, array $options)
+    #[DataProvider('provideFilters')]
+    public function testFilter(string $name, string $method, array $options): void
     {
         $extension = new AttributeExtension(ExtensionWithAttributes::class);
         foreach ($extension->getFilters() as $filter) {
@@ -49,15 +51,18 @@ class AttributeExtensionTest extends TestCase
         yield 'with context' => ['with_context_filter', 'withContextFilter', ['needs_context' => true]];
         yield 'with env and context' => ['with_env_and_context_filter', 'withEnvAndContextFilter', ['needs_environment' => true, 'needs_context' => true]];
         yield 'with sandbox' => ['with_sandbox_filter', 'withSandboxFilter', ['needs_is_sandboxed' => true]];
+        yield 'always allowed' => ['always_allowed_filter', 'alwaysAllowedFilter', ['always_allowed_in_sandbox' => true]];
         yield 'variadic' => ['variadic_filter', 'variadicFilter', ['is_variadic' => true]];
         yield 'deprecated' => ['deprecated_filter', 'deprecatedFilter', ['deprecation_info' => new DeprecatedCallableInfo('foo/bar', '1.2')]];
+        yield 'deprecated positional' => ['deprecated_positional_filter', 'deprecatedPositionalFilter', ['deprecation_info' => new DeprecatedCallableInfo('foo/bar', '1.2')]];
         yield 'pattern' => ['pattern_*_filter', 'patternFilter', []];
     }
 
     /**
      * @dataProvider provideFunctions
      */
-    public function testFunction(string $name, string $method, array $options)
+    #[DataProvider('provideFunctions')]
+    public function testFunction(string $name, string $method, array $options): void
     {
         $extension = new AttributeExtension(ExtensionWithAttributes::class);
         foreach ($extension->getFunctions() as $function) {
@@ -78,15 +83,18 @@ class AttributeExtensionTest extends TestCase
         yield 'with context' => ['with_context_function', 'withContextFunction', ['needs_context' => true]];
         yield 'with env and context' => ['with_env_and_context_function', 'withEnvAndContextFunction', ['needs_environment' => true, 'needs_context' => true]];
         yield 'with sandbox' => ['with_sandbox_function', 'withSandboxFunction', ['needs_is_sandboxed' => true]];
+        yield 'always allowed' => ['always_allowed_function', 'alwaysAllowedFunction', ['always_allowed_in_sandbox' => true]];
         yield 'no argument' => ['no_arg_function', 'noArgFunction', []];
         yield 'variadic' => ['variadic_function', 'variadicFunction', ['is_variadic' => true]];
         yield 'deprecated' => ['deprecated_function', 'deprecatedFunction', ['deprecation_info' => new DeprecatedCallableInfo('foo/bar', '1.2')]];
+        yield 'deprecated positional' => ['deprecated_positional_function', 'deprecatedPositionalFunction', ['deprecation_info' => new DeprecatedCallableInfo('foo/bar', '1.2')]];
     }
 
     /**
      * @dataProvider provideTests
      */
-    public function testTest(string $name, string $method, array $options)
+    #[DataProvider('provideTests')]
+    public function testTest(string $name, string $method, array $options): void
     {
         $extension = new AttributeExtension(ExtensionWithAttributes::class);
         foreach ($extension->getTests() as $test) {
@@ -107,11 +115,13 @@ class AttributeExtensionTest extends TestCase
         yield 'with context' => ['with_context_test', 'withContextTest', ['needs_context' => true]];
         yield 'with env and context' => ['with_env_and_context_test', 'withEnvAndContextTest', ['needs_environment' => true, 'needs_context' => true]];
         yield 'with sandbox' => ['with_sandbox_test', 'withSandboxTest', ['needs_is_sandboxed' => true]];
+        yield 'always allowed' => ['always_allowed_test', 'alwaysAllowedTest', ['always_allowed_in_sandbox' => true]];
         yield 'variadic' => ['variadic_test', 'variadicTest', ['is_variadic' => true]];
         yield 'deprecated' => ['deprecated_test', 'deprecatedTest', ['deprecation_info' => new DeprecatedCallableInfo('foo/bar', '1.2')]];
+        yield 'deprecated positional' => ['deprecated_positional_test', 'deprecatedPositionalTest', ['deprecation_info' => new DeprecatedCallableInfo('foo/bar', '1.2')]];
     }
 
-    public function testFilterRequireOneArgument()
+    public function testFilterRequireOneArgument(): void
     {
         $extension = new AttributeExtension(FilterWithoutValue::class);
 
@@ -121,7 +131,7 @@ class AttributeExtensionTest extends TestCase
         $extension->getTests();
     }
 
-    public function testTestRequireOneArgument()
+    public function testTestRequireOneArgument(): void
     {
         $extension = new AttributeExtension(TestWithoutValue::class);
 
@@ -131,14 +141,14 @@ class AttributeExtensionTest extends TestCase
         $extension->getTests();
     }
 
-    public function testLastModifiedWithObject()
+    public function testLastModifiedWithObject(): void
     {
         $extension = new AttributeExtension(\stdClass::class);
 
         $this->assertSame(filemtime((new \ReflectionClass(AttributeExtension::class))->getFileName()), $extension->getLastModified());
     }
 
-    public function testLastModifiedWithClass()
+    public function testLastModifiedWithClass(): void
     {
         $extension = new AttributeExtension('__CLASS_FOR_TEST_LAST_MODIFIED__');
 
@@ -153,7 +163,7 @@ class AttributeExtensionTest extends TestCase
         }
     }
 
-    public function testMultipleRegistrations()
+    public function testMultipleRegistrations(): void
     {
         $extensionSet = new ExtensionSet();
         $extensionSet->addExtension($extension1 = new AttributeExtension(ExtensionWithAttributes::class));

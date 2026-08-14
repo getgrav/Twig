@@ -20,6 +20,8 @@ namespace Twig\Tests;
  * file that was distributed with this source code.
  */
 
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Symfony\Bridge\PhpUnit\ExpectDeprecationTrait;
 use Twig\Environment;
@@ -33,7 +35,7 @@ class LexerTest extends TestCase
 {
     use ExpectDeprecationTrait;
 
-    public function testNameLabelForTag()
+    public function testNameLabelForTag(): void
     {
         $template = '{% § %}';
 
@@ -44,7 +46,7 @@ class LexerTest extends TestCase
         $this->assertSame('§', $stream->expect(Token::NAME_TYPE)->getValue());
     }
 
-    public function testNameLabelForFunction()
+    public function testNameLabelForFunction(): void
     {
         $template = '{{ §() }}';
 
@@ -55,7 +57,7 @@ class LexerTest extends TestCase
         $this->assertSame('§', $stream->expect(Token::NAME_TYPE)->getValue());
     }
 
-    public function testBracketsNesting()
+    public function testBracketsNesting(): void
     {
         $template = '{{ {"a":{"b":"c"}} }}';
 
@@ -81,7 +83,7 @@ class LexerTest extends TestCase
         return $count;
     }
 
-    public function testLineDirective()
+    public function testLineDirective(): void
     {
         $template = "foo\n"
             ."bar\n"
@@ -103,7 +105,7 @@ class LexerTest extends TestCase
         $this->assertSame(12, $stream->expect(Token::NAME_TYPE)->getLine());
     }
 
-    public function testLineDirectiveInline()
+    public function testLineDirectiveInline(): void
     {
         $template = "foo\n"
             ."bar{% line 10 %}{{\n"
@@ -121,7 +123,7 @@ class LexerTest extends TestCase
         $this->assertSame(11, $stream->expect(Token::NAME_TYPE)->getLine());
     }
 
-    public function testLongComments()
+    public function testLongComments(): void
     {
         $template = '{# '.str_repeat('*', 100000).' #}';
 
@@ -133,7 +135,7 @@ class LexerTest extends TestCase
         $this->addToAssertionCount(1);
     }
 
-    public function testLongVerbatim()
+    public function testLongVerbatim(): void
     {
         $template = '{% verbatim %}'.str_repeat('*', 100000).'{% endverbatim %}';
 
@@ -145,7 +147,7 @@ class LexerTest extends TestCase
         $this->addToAssertionCount(1);
     }
 
-    public function testLongVar()
+    public function testLongVar(): void
     {
         $template = '{{ '.str_repeat('x', 100000).' }}';
 
@@ -157,7 +159,7 @@ class LexerTest extends TestCase
         $this->addToAssertionCount(1);
     }
 
-    public function testLongBlock()
+    public function testLongBlock(): void
     {
         $template = '{% '.str_repeat('x', 100000).' %}';
 
@@ -169,7 +171,7 @@ class LexerTest extends TestCase
         $this->addToAssertionCount(1);
     }
 
-    public function testBigNumbers()
+    public function testBigNumbers(): void
     {
         $template = '{{ 922337203685477580700 }}';
 
@@ -183,7 +185,8 @@ class LexerTest extends TestCase
     /**
      * @dataProvider getStringWithEscapedDelimiter
      */
-    public function testStringWithEscapedDelimiter(string $template, string $expected)
+    #[DataProvider('getStringWithEscapedDelimiter')]
+    public function testStringWithEscapedDelimiter(string $template, string $expected): void
     {
         $lexer = new Lexer(new Environment(new ArrayLoader()));
         $stream = $lexer->tokenize(new Source($template, 'index'));
@@ -205,6 +208,18 @@ class LexerTest extends TestCase
             {{ '\065\x64' }}
             EOF,
             "\065\x64",
+        ];
+        yield 'octal escape overflowing a single byte is constrained with % 256' => [
+            <<<'EOF'
+            {{ '\777' }}
+            EOF,
+            "\xff",
+        ];
+        yield 'octal escape exactly equal to 256 wraps around to a NUL byte' => [
+            <<<'EOF'
+            {{ '\400' }}
+            EOF,
+            "\x00",
         ];
         yield [
             <<<'EOF'
@@ -259,7 +274,8 @@ class LexerTest extends TestCase
      *
      * @dataProvider getStringWithEscapedDelimiterProducingDeprecation
      */
-    public function testStringWithEscapedDelimiterProducingDeprecation(string $template, string $expected, string $expectedDeprecation)
+    #[DataProvider('getStringWithEscapedDelimiterProducingDeprecation'), Group('legacy')]
+    public function testStringWithEscapedDelimiterProducingDeprecation(string $template, string $expected, string $expectedDeprecation): void
     {
         $this->expectDeprecation($expectedDeprecation);
 
@@ -300,7 +316,7 @@ class LexerTest extends TestCase
         ];
     }
 
-    public function testStringWithInterpolation()
+    public function testStringWithInterpolation(): void
     {
         $template = 'foo {{ "bar #{ baz + 1 }" }}';
 
@@ -321,7 +337,7 @@ class LexerTest extends TestCase
         $this->addToAssertionCount(1);
     }
 
-    public function testStringWithEscapedInterpolation()
+    public function testStringWithEscapedInterpolation(): void
     {
         $template = '{{ "bar \#{baz+1}" }}';
 
@@ -336,7 +352,7 @@ class LexerTest extends TestCase
         $this->addToAssertionCount(1);
     }
 
-    public function testStringWithHash()
+    public function testStringWithHash(): void
     {
         $template = '{{ "bar # baz" }}';
 
@@ -351,7 +367,7 @@ class LexerTest extends TestCase
         $this->addToAssertionCount(1);
     }
 
-    public function testStringWithUnterminatedInterpolation()
+    public function testStringWithUnterminatedInterpolation(): void
     {
         $template = '{{ "bar #{x" }}';
         $lexer = new Lexer(new Environment(new ArrayLoader()));
@@ -362,7 +378,7 @@ class LexerTest extends TestCase
         $lexer->tokenize(new Source($template, 'index'));
     }
 
-    public function testStringWithNestedInterpolations()
+    public function testStringWithNestedInterpolations(): void
     {
         $template = '{{ "bar #{ "foo#{bar}" }" }}';
 
@@ -383,7 +399,7 @@ class LexerTest extends TestCase
         $this->addToAssertionCount(1);
     }
 
-    public function testStringWithNestedInterpolationsInBlock()
+    public function testStringWithNestedInterpolationsInBlock(): void
     {
         $template = '{% foo "bar #{ "foo#{bar}" }" %}';
 
@@ -405,7 +421,7 @@ class LexerTest extends TestCase
         $this->addToAssertionCount(1);
     }
 
-    public function testOperatorEndingWithALetterAtTheEndOfALine()
+    public function testOperatorEndingWithALetterAtTheEndOfALine(): void
     {
         $template = "{{ 1 and\n0}}";
 
@@ -420,7 +436,7 @@ class LexerTest extends TestCase
         $this->addToAssertionCount(1);
     }
 
-    public function testFilterAndAttributeNamedAfterOperator()
+    public function testFilterAndAttributeNamedAfterOperator(): void
     {
         // Ensure that filters/attributes aren't mistaken for operators when their names conflict
         // (see https://github.com/twigphp/Twig/issues/4767)
@@ -456,7 +472,7 @@ class LexerTest extends TestCase
         // can be executed without throwing any exceptions
     }
 
-    public function testLiteralIsNotAnOperator()
+    public function testLiteralIsNotAnOperator(): void
     {
         // "literal" is the name of the LiteralExpressionParser but should not be treated as an operator token
         $template = '{{ literal }}';
@@ -470,7 +486,7 @@ class LexerTest extends TestCase
         $this->addToAssertionCount(1);
     }
 
-    public function testUnterminatedVariable()
+    public function testUnterminatedVariable(): void
     {
         $template = '
 
@@ -488,7 +504,7 @@ bar
         $lexer->tokenize(new Source($template, 'index'));
     }
 
-    public function testUnterminatedBlock()
+    public function testUnterminatedBlock(): void
     {
         $template = '
 
@@ -507,7 +523,7 @@ bar
         $lexer->tokenize(new Source($template, 'index'));
     }
 
-    public function testOverridingSyntax()
+    public function testOverridingSyntax(): void
     {
         $template = '[# comment #]{# variable #}/# if true #/true/# endif #/';
         $lexer = new Lexer(new Environment(new ArrayLoader()), [
@@ -536,7 +552,8 @@ bar
     /**
      * @dataProvider getTemplateForErrorsAtTheEndOfTheStream
      */
-    public function testErrorsAtTheEndOfTheStream(string $template)
+    #[DataProvider('getTemplateForErrorsAtTheEndOfTheStream')]
+    public function testErrorsAtTheEndOfTheStream(string $template): void
     {
         $lexer = new Lexer(new Environment(new ArrayLoader()));
         set_error_handler(function () {
@@ -559,7 +576,8 @@ bar
     /**
      * @dataProvider getTemplateForStrings
      */
-    public function testStrings(string $expected)
+    #[DataProvider('getTemplateForStrings')]
+    public function testStrings(string $expected): void
     {
         $template = '{{ "'.$expected.'" }}';
         $lexer = new Lexer(new Environment(new ArrayLoader()));
@@ -584,7 +602,7 @@ bar
         yield ['في العالم العربي، يُعتبر الخط العربي أحد أجمل أشكال الفن. يُستخدم الخط في تزيين المساجد والكتب والمخطوطات القديمة. يتميز الخط العربي بجماله وتناسقه، ويُعتبر رمزًا للثقافة الإسلامية.'];
     }
 
-    public function testInlineCommentWithHashInString()
+    public function testInlineCommentWithHashInString(): void
     {
         $lexer = new Lexer(new Environment(new ArrayLoader()));
         $stream = $lexer->tokenize(new Source('{{ "me # this is NOT an inline comment" }}', 'index'));
@@ -597,7 +615,8 @@ bar
     /**
      * @dataProvider getTemplateForInlineCommentsForVariable
      */
-    public function testInlineCommentForVariable(string $template)
+    #[DataProvider('getTemplateForInlineCommentsForVariable')]
+    public function testInlineCommentForVariable(string $template): void
     {
         $lexer = new Lexer(new Environment(new ArrayLoader()));
         $stream = $lexer->tokenize(new Source($template, 'index'));
@@ -630,7 +649,8 @@ bar
     /**
      * @dataProvider getTemplateForInlineCommentsForBlock
      */
-    public function testInlineCommentForBlock(string $template)
+    #[DataProvider('getTemplateForInlineCommentsForBlock')]
+    public function testInlineCommentForBlock(string $template): void
     {
         $lexer = new Lexer(new Environment(new ArrayLoader()));
         $stream = $lexer->tokenize(new Source($template, 'index'));
@@ -668,7 +688,8 @@ bar
     /**
      * @dataProvider getTemplateForInlineCommentsForComment
      */
-    public function testInlineCommentForComment(string $template)
+    #[DataProvider('getTemplateForInlineCommentsForComment')]
+    public function testInlineCommentForComment(string $template): void
     {
         $lexer = new Lexer(new Environment(new ArrayLoader()));
         $stream = $lexer->tokenize(new Source($template, 'index'));
@@ -685,7 +706,8 @@ bar
     /**
      * @dataProvider getTemplateForUnclosedBracketInExpression
      */
-    public function testUnclosedBracketInExpression(string $template, string $bracket)
+    #[DataProvider('getTemplateForUnclosedBracketInExpression')]
+    public function testUnclosedBracketInExpression(string $template, string $bracket): void
     {
         $lexer = new Lexer(new Environment(new ArrayLoader()));
 
@@ -706,21 +728,155 @@ bar
     /**
      * @dataProvider getTemplateForUnexpectedBracketInExpression
      */
-    public function testUnexpectedBracketInExpression(string $template, string $bracket)
+    #[DataProvider('getTemplateForUnexpectedBracketInExpression')]
+    public function testUnexpectedBracketInExpression(string $template, string $bracket, int $column): void
     {
         $lexer = new Lexer(new Environment(new ArrayLoader()));
 
         $this->expectException(SyntaxError::class);
-        $this->expectExceptionMessage(\sprintf('Unexpected "%s" in "index" at line 1.', $bracket));
+        $this->expectExceptionMessage(\sprintf('Unexpected "%s" in "index" at line 1 column %d.', $bracket, $column));
 
         $lexer->tokenize(new Source($template, 'index'));
     }
 
     public static function getTemplateForUnexpectedBracketInExpression()
     {
-        yield ['{{ 1 + 3) }}', ')'];
-        yield ['{{ obj] }}', ']'];
-        yield ['{{ { a: 1 }}', '}'];
-        yield ['{{ ([1] + 3)) }}', ')'];
+        yield ['{{ 1 + 3) }}', ')', 9];
+        yield ['{{ obj] }}', ']', 7];
+        yield ['{{ { a: 1 }}', '}', 12];
+        yield ['{{ ([1] + 3)) }}', ')', 13];
+    }
+
+    public function testTokensCarryTheirSourceOffset(): void
+    {
+        $template = 'Hello {{ name }}!';
+
+        $lexer = new Lexer(new Environment(new ArrayLoader()));
+        $stream = $lexer->tokenize(new Source($template, 'index'));
+
+        // [type, offset] pairs; offsets point at the start of each lexeme in the source
+        $expected = [
+            [Token::TEXT_TYPE, 0],   // "Hello "
+            [Token::VAR_START_TYPE, 6],   // "{{"
+            [Token::NAME_TYPE, 9],   // "name"
+            [Token::VAR_END_TYPE, 14],  // "}}"
+            [Token::TEXT_TYPE, 16],  // "!"
+            [Token::EOF_TYPE, 17],
+        ];
+
+        foreach ($expected as [$type, $offset]) {
+            $token = $stream->getCurrent();
+            $this->assertTrue($token->test($type), \sprintf('Expected token "%s".', Token::typeToEnglish($type)));
+            $this->assertSame($offset, $token->getOffset());
+
+            if (!$stream->isEOF()) {
+                $stream->next();
+            }
+        }
+    }
+
+    public function testOffsetsAllowRecoveringTheRawExpressionSource(): void
+    {
+        $template = "Hello {{ name|upper ~ '!' }}";
+
+        $lexer = new Lexer(new Environment(new ArrayLoader()));
+        $stream = $lexer->tokenize(new Source($template, 'index'));
+
+        $stream->expect(Token::TEXT_TYPE);
+        $start = $stream->expect(Token::VAR_START_TYPE)->getOffset();
+        while (!$stream->test(Token::VAR_END_TYPE)) {
+            $stream->next();
+        }
+        $end = $stream->getCurrent()->getOffset();
+
+        // slice the raw expression out of the original source, between "{{" and "}}"
+        $raw = trim(substr($template, $start + 2, $end - $start - 2));
+
+        $this->assertSame("name|upper ~ '!'", $raw);
+    }
+
+    public function testOffsetsReferToTheOriginalSourceWhenLineEndingsAreNormalized(): void
+    {
+        $template = "Hello\r\n{{ name }}";
+
+        $lexer = new Lexer(new Environment(new ArrayLoader()));
+        $stream = $lexer->tokenize(new Source($template, 'index'));
+
+        $stream->expect(Token::TEXT_TYPE);
+        $start = $stream->expect(Token::VAR_START_TYPE)->getOffset();
+        $this->assertSame('{{', substr($template, $start, 2));
+
+        $name = $stream->expect(Token::NAME_TYPE);
+        $this->assertSame('name', substr($template, $name->getOffset(), 4));
+
+        $end = $stream->expect(Token::VAR_END_TYPE)->getOffset();
+        $this->assertSame('name', trim(substr($template, $start + 2, $end - $start - 2)));
+    }
+
+    public function testBlockTagDelimitersPointAtTheMarkers(): void
+    {
+        $template = '{% set x = 1 %}';
+
+        $lexer = new Lexer(new Environment(new ArrayLoader()));
+        $stream = $lexer->tokenize(new Source($template, 'index'));
+
+        // the opening "{%" and the closing "%}" both point at the marker itself,
+        // not at the whitespace the closing regex also consumes
+        $this->assertSame(0, $stream->expect(Token::BLOCK_START_TYPE)->getOffset());
+        $this->assertSame('{%', substr($template, 0, 2));
+        while (!$stream->test(Token::BLOCK_END_TYPE)) {
+            $stream->next();
+        }
+        $end = $stream->getCurrent()->getOffset();
+        $this->assertSame('%}', substr($template, $end, 2));
+    }
+
+    public function testClosingDelimiterLineMatchesTheMarkerLine(): void
+    {
+        $template = "{% from 'forms.twig'\n  %}";
+        $env = new Environment(new ArrayLoader());
+
+        try {
+            $env->parse($env->tokenize(new Source($template, 'index')));
+            $this->fail('A SyntaxError should have been thrown.');
+        } catch (SyntaxError $e) {
+            $this->assertSame(2, $e->getTemplateLine());
+            $this->assertSame(3, $e->getTemplateColumn());
+            $this->assertStringEndsWith('at line 2 column 3.', $e->getMessage());
+        }
+    }
+
+    public function testSyntheticTokensHaveNoOffset(): void
+    {
+        $this->assertNull((new Token(Token::NAME_TYPE, 'foo', 1))->getOffset());
+    }
+
+    public function testSyntaxErrorReportsTheColumn(): void
+    {
+        $lexer = new Lexer(new Environment(new ArrayLoader()));
+
+        try {
+            $lexer->tokenize(new Source("{{ 1 + 3) }}\n{{ ok }}", 'index'));
+            $this->fail('A SyntaxError should have been thrown.');
+        } catch (SyntaxError $e) {
+            $this->assertSame(1, $e->getTemplateLine());
+            $this->assertSame(9, $e->getTemplateColumn());
+            $this->assertStringEndsWith('at line 1 column 9.', $e->getMessage());
+        }
+    }
+
+    public function testSyntaxErrorColumnUsesOriginalSourceOffsets(): void
+    {
+        $template = "x\r\n{{ 1__2 }}";
+        $env = new Environment(new ArrayLoader());
+
+        try {
+            $env->parse($env->tokenize(new Source($template, 'index')));
+            $this->fail('A SyntaxError should have been thrown.');
+        } catch (SyntaxError $e) {
+            $this->assertSame(2, $e->getTemplateLine());
+            $this->assertSame(5, $e->getTemplateColumn());
+            $this->assertStringEndsWith('at line 2 column 5.', $e->getMessage());
+        }
     }
 }

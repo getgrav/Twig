@@ -29,7 +29,7 @@ use Twig\Test\NodeTestCase;
 
 class IfTest extends NodeTestCase
 {
-    public function testConstructor()
+    public function testConstructor(): void
     {
         $t = new Nodes([
             new ConstantExpression(true, 1),
@@ -63,7 +63,7 @@ class IfTest extends NodeTestCase
         $tests[] = [$node, <<<EOF
 // line 1
 if (true) {
-    yield $fooGetter;
+    yield (string) $fooGetter;
 }
 EOF
         ];
@@ -80,9 +80,9 @@ EOF
         $tests[] = [$node, <<<EOF
 // line 1
 if (true) {
-    yield $fooGetter;
+    yield (string) $fooGetter;
 } elseif (false) {
-    yield $barGetter;
+    yield (string) $barGetter;
 }
 EOF
         ];
@@ -97,9 +97,9 @@ EOF
         $tests[] = [$node, <<<EOF
 // line 1
 if (true) {
-    yield $fooGetter;
+    yield (string) $fooGetter;
 } else {
-    yield $barGetter;
+    yield (string) $barGetter;
 }
 EOF
         ];

@@ -11,26 +11,62 @@ via macros (called ``forms.twig``):
 
 .. code-block:: html+twig
 
-    {% macro input(name, value, type = "text", size = 20) %}
-        <input type="{{ type }}" name="{{ name }}" value="{{ value|e }}" size="{{ size }}"/>
+    {% macro input(name, value = "", type = "text", size = 20) %}
+        <input
+            type="{{ type }}"
+            name="{{ name }}"
+            value="{{ value|e }}"
+            size="{{ size }}"
+        />
     {% endmacro %}
 
-    {% macro textarea(name, value, rows = 10, cols = 40) %}
-        <textarea name="{{ name }}" rows="{{ rows }}" cols="{{ cols }}">{{ value|e }}</textarea>
+    {% macro textarea(name, value = "", rows = 10, cols = 40) %}
+        <textarea
+            name="{{ name }}"
+            rows="{{ rows }}"
+            cols="{{ cols }}"
+        >{{ value|e }}</textarea>
     {% endmacro %}
 
-Each macro argument can have a default value (here ``text`` is the default value
+A macro argument can have a default value (here ``text`` is the default value
 for ``type`` if not provided in the call).
 
-Macros differ from native PHP functions in a few ways:
+As with PHP function arguments, a macro argument is required unless it declares
+a default value. Here, ``name`` is required while ``value``, ``type``, and
+``size`` are optional.
 
-* Arguments of a macro are always optional.
+.. deprecated:: 3.29
 
-* If extra positional arguments are passed to a macro, they end up in the
-  special ``varargs`` variable as a list of values.
+    Calling a macro without a value for an argument that has no default value is
+    deprecated as of Twig 3.29; the argument will be required in Twig 4.0 (until
+    then, it defaults to ``null``). Give every optional argument an explicit
+    default value.
 
-But as with PHP functions, macros don't have access to the current template
-variables.
+To accept an arbitrary number of extra arguments, declare an explicit variadic
+argument as described below.
+
+Note that macros don't have access to the current template variables.
+
+A macro can declare an explicit variadic argument to collect any extra
+positional and named arguments into a named variable, using the same ``...``
+notation as PHP:
+
+.. code-block:: html+twig
+
+    {% macro tag(element, ...attributes) %}
+        <{{ element }}
+        {%- for key, value in attributes %} {{ key|e('html_attr') }}="{{ value }}"{% endfor -%}
+        >
+    {% endmacro %}
+
+    {{ _self.tag("input", type: "text", name: "username") }}
+
+The variadic argument must be the last one and cannot have a default value.
+
+.. versionadded:: 3.29
+
+    Support for declaring an explicit variadic macro argument was added in Twig
+    3.29.
 
 .. tip::
 
@@ -63,6 +99,19 @@ The macros can then be called at will in the *current* template:
     <p>{{ forms.input('password', null, 'password') }}</p>
     {# You can also use named arguments #}
     <p>{{ forms.input(name: 'password', type: 'password') }}</p>
+
+The macro name can also be dynamic by wrapping an expression with parenthesis
+after the :ref:`dot operator <dot_operator>`:
+
+.. code-block:: html+twig
+
+    {% set field = 'input' %}
+    <p>{{ forms.(field)('username') }}</p>
+    <p>{{ forms.('text' ~ 'area')('comment') }}</p>
+
+.. versionadded:: 3.28
+
+    Support for calling a macro with a dynamic name was added in Twig 3.28.
 
 Alternatively you can import names from the template into the current namespace
 via the ``from`` tag:
@@ -97,8 +146,13 @@ via the ``from`` tag:
 
         <p>{{ _self.input('password', '', 'password') }}</p>
 
-        {% macro input(name, value, type = "text", size = 20) %}
-            <input type="{{ type }}" name="{{ name }}" value="{{ value|e }}" size="{{ size }}"/>
+        {% macro input(name, value = "", type = "text", size = 20) %}
+            <input
+                type="{{ type }}"
+                name="{{ name }}"
+                value="{{ value|e }}"
+                size="{{ size }}"
+            />
         {% endmacro %}
 
 Macros Scoping
@@ -111,6 +165,33 @@ Imported macros are always **local** to the current template. It means that
 macros are available in all blocks and other macros defined in the current
 template, but they are not available in included templates or child templates;
 you need to explicitly re-import macros in each template.
+
+A macro can use the imports declared at the top level of its own template::
+
+    {# forms.twig #}
+    {% import "fields.twig" as fields %}
+
+    {% macro input(name) %}
+        {{ fields.text(name) }}
+    {% endmacro %}
+
+This also works when the macro is called from another template. For such an
+import to be available inside macros, it must follow two rules:
+
+* It must be declared at the top level of the template, not nested in another
+  tag like ``if`` or ``for``;
+
+* The imported template name must be a literal string or an expression that
+  only depends on :ref:`global variables <environment-globals>`; it cannot
+  use other variables.
+
+To use a dynamic template name, pass it as a macro argument and import it
+inside the macro body::
+
+    {% macro input(name, theme) %}
+        {% import theme as fields %}
+        {{ fields.text(name) }}
+    {% endmacro %}
 
 Imported macros are not available in the body of ``embed`` tags, you need
 to explicitly re-import macros inside the tag.
@@ -138,6 +219,15 @@ You can check if a macro is defined via the ``defined`` test:
         OK
     {% endif %}
 
+Note that the test applies to the macro itself, not to a call: don't use
+parentheses after the macro name when testing it.
+
+.. deprecated:: 3.29
+
+    Using parentheses when testing a macro with the ``defined`` test (e.g.
+    ``macros.hello() is defined``) is deprecated as of Twig 3.29; it will
+    throw a ``SyntaxError`` in Twig 4.0.
+
 Named Macro End-Tags
 --------------------
 
@@ -149,3 +239,16 @@ readability (the name after the ``endmacro`` word must match the macro name):
     {% macro input() %}
         ...
     {% endmacro input %}
+
+Deprecating a Macro
+-------------------
+
+Use the :doc:`deprecated <deprecated>` tag at the top of a macro to deprecate
+it; a deprecation notice is triggered whenever the macro is called:
+
+.. code-block:: html+twig
+
+    {% macro input(name, value = "") %}
+        {% deprecated 'The "input" macro is deprecated, use "field" instead.' %}
+        <input name="{{ name }}" value="{{ value|e }}"/>
+    {% endmacro %}

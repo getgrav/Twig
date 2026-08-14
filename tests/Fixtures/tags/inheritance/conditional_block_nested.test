@@ -15,13 +15,15 @@ conditional "block" tag with "extends" tag (nested)
 --TEMPLATE(layout.twig)--
 {% extends "base.twig" %}
 
+{% block content_layout -%}
+    nested_layout
+{% endblock -%}
+
 {% block content_base %}
     {{ parent() -}}
     layout
     {% if true -%}
-        {% block content_layout -%}
-            nested_layout
-        {% endblock -%}
+        {{ block('content_layout') -}}
     {% endif %}
 {% endblock %}
 --TEMPLATE(base.twig)--
@@ -34,5 +36,5 @@ return []
 base
 layout
     nested_layout
-        nested_index
+nested_index
 index

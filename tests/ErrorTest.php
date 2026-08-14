@@ -20,6 +20,7 @@ namespace Twig\Tests;
  * file that was distributed with this source code.
  */
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Twig\Attribute\YieldReady;
 use Twig\Compiler;
@@ -35,10 +36,11 @@ use Twig\Node\Node;
 use Twig\Source;
 use Twig\Token;
 use Twig\TokenParser\AbstractTokenParser;
+use Twig\TwigFunction;
 
 class ErrorTest extends TestCase
 {
-    public function testErrorWithObjectFilename()
+    public function testErrorWithObjectFilename(): void
     {
         $error = new Error('foo');
         $error->setSourceContext(new Source('', new \SplFileInfo(__FILE__)));
@@ -46,7 +48,25 @@ class ErrorTest extends TestCase
         $this->assertStringContainsString('tests'.\DIRECTORY_SEPARATOR.'ErrorTest.php', $error->getMessage());
     }
 
-    public function testTwigExceptionGuessWithMissingVarAndArrayLoader()
+    public function testTwigErrorIsEnrichedWithoutBeingWrapped(): void
+    {
+        $twig = new Environment(new ArrayLoader(['index' => "foo\n{{ fail() }}"]), ['debug' => true, 'cache' => false]);
+        $error = null;
+        $twig->addFunction(new TwigFunction('fail', static function () use (&$error): never {
+            throw $error = new RuntimeError('Runtime error.');
+        }));
+
+        try {
+            $twig->render('index');
+            $this->fail();
+        } catch (RuntimeError $e) {
+            $this->assertSame($error, $e);
+            $this->assertSame(2, $e->getTemplateLine());
+            $this->assertSame('index', $e->getSourceContext()->getName());
+        }
+    }
+
+    public function testTwigExceptionGuessWithMissingVarAndArrayLoader(): void
     {
         $loader = new ArrayLoader([
             'base.html' => '{% block content %}{% endblock %}',
@@ -75,7 +95,7 @@ EOHTML,
         }
     }
 
-    public function testTwigExceptionGuessWithExceptionAndArrayLoader()
+    public function testTwigExceptionGuessWithExceptionAndArrayLoader(): void
     {
         $loader = new ArrayLoader([
             'base.html' => '{% block content %}{% endblock %}',
@@ -103,7 +123,7 @@ EOHTML,
         }
     }
 
-    public function testTwigExceptionGuessWithMissingVarAndFilesystemLoader()
+    public function testTwigExceptionGuessWithMissingVarAndFilesystemLoader(): void
     {
         $loader = new FilesystemLoader(__DIR__.'/Fixtures/errors');
         $twig = new Environment($loader, ['strict_variables' => true, 'debug' => true, 'cache' => false]);
@@ -122,7 +142,7 @@ EOHTML,
         }
     }
 
-    public function testTwigExceptionGuessWithExceptionAndFilesystemLoader()
+    public function testTwigExceptionGuessWithExceptionAndFilesystemLoader(): void
     {
         $loader = new FilesystemLoader(__DIR__.'/Fixtures/errors');
         $twig = new Environment($loader, ['strict_variables' => true, 'debug' => true, 'cache' => false]);
@@ -144,7 +164,8 @@ EOHTML,
     /**
      * @dataProvider getErroredTemplates
      */
-    public function testTwigExceptionAddsFileAndLine($templates, $name, $line)
+    #[DataProvider('getErroredTemplates')]
+    public function testTwigExceptionAddsFileAndLine($templates, $name, $line): void
     {
         $loader = new ArrayLoader($templates);
         $twig = new Environment($loader, ['strict_variables' => true, 'debug' => true, 'cache' => false]);
@@ -172,7 +193,7 @@ EOHTML,
         }
     }
 
-    public function testTwigArrayFilterThrowsRuntimeExceptions()
+    public function testTwigArrayFilterThrowsRuntimeExceptions(): void
     {
         $loader = new ArrayLoader([
             'filter-null.html' => <<<EOHTML
@@ -199,7 +220,7 @@ EOHTML,
         }
     }
 
-    public function testTwigArrayMapThrowsRuntimeExceptions()
+    public function testTwigArrayMapThrowsRuntimeExceptions(): void
     {
         $loader = new ArrayLoader([
             'map-null.html' => <<<EOHTML
@@ -226,7 +247,7 @@ EOHTML,
         }
     }
 
-    public function testTwigArrayReduceThrowsRuntimeExceptions()
+    public function testTwigArrayReduceThrowsRuntimeExceptions(): void
     {
         $loader = new ArrayLoader([
             'reduce-null.html' => <<<EOHTML
@@ -251,7 +272,7 @@ EOHTML,
         }
     }
 
-    public function testTwigExceptionUpdateFileAndLineTogether()
+    public function testTwigExceptionUpdateFileAndLineTogether(): void
     {
         $twig = new Environment(new ArrayLoader([
             'index' => "\n\n\n\n{{ foo() }}",
@@ -272,7 +293,8 @@ EOHTML,
     /**
      * @dataProvider getErrorWithoutLineAndContextData
      */
-    public function testErrorWithoutLineAndContext(LoaderInterface $loader, bool $debug, bool $addDebugInfo, bool $exceptionWithLineAndContext, int $errorLine)
+    #[DataProvider('getErrorWithoutLineAndContextData')]
+    public function testErrorWithoutLineAndContext(LoaderInterface $loader, bool $debug, bool $addDebugInfo, bool $exceptionWithLineAndContext, int $errorLine): void
     {
         $twig = new Environment($loader, ['debug' => $debug, 'cache' => false]);
         $twig->removeCache('no_line_and_context_exception.twig');
@@ -452,7 +474,7 @@ EOHTML,
         ];
     }
 
-    public function testErrorFromArrayLoader()
+    public function testErrorFromArrayLoader(): void
     {
         $templates = [
             'index.twig' => '{% include "include.twig" %}',
@@ -475,7 +497,7 @@ EOHTML,
         }
     }
 
-    public function testErrorFromFilesystemLoader()
+    public function testErrorFromFilesystemLoader(): void
     {
         $twig = new Environment(new FilesystemLoader([$dir = __DIR__.'/Fixtures/errors/extends']), ['debug' => true, 'cache' => false]);
         $include = file_get_contents($dir.'/include.twig');
@@ -493,7 +515,7 @@ EOHTML,
 
 class ErrorTest_Foo
 {
-    public function bar()
+    public function bar(): void
     {
         throw new \Exception('Runtime error...');
     }

@@ -20,6 +20,7 @@ namespace Twig\Tests\Loader;
  * file that was distributed with this source code.
  */
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Twig\Environment;
 use Twig\Error\LoaderError;
@@ -27,7 +28,7 @@ use Twig\Loader\FilesystemLoader;
 
 class FilesystemTest extends TestCase
 {
-    public function testGetSourceContext()
+    public function testGetSourceContext(): void
     {
         $path = __DIR__.'/../Fixtures';
         $loader = new FilesystemLoader([$path]);
@@ -38,7 +39,8 @@ class FilesystemTest extends TestCase
     /**
      * @dataProvider getSecurityTests
      */
-    public function testSecurity($template)
+    #[DataProvider('getSecurityTests')]
+    public function testSecurity($template): void
     {
         $loader = new FilesystemLoader([__DIR__.'/../Fixtures']);
         $loader->addPath(__DIR__.'/../Fixtures', 'foo');
@@ -83,7 +85,8 @@ class FilesystemTest extends TestCase
     /**
      * @dataProvider getBasePaths
      */
-    public function testPaths($basePath, $cacheKey, $rootPath)
+    #[DataProvider('getBasePaths')]
+    public function testPaths($basePath, $cacheKey, $rootPath): void
     {
         $loader = new FilesystemLoader([$basePath.'/normal', $basePath.'/normal_bis'], $rootPath);
         $loader->setPaths([$basePath.'/named', $basePath.'/named_bis'], 'named');
@@ -145,13 +148,13 @@ class FilesystemTest extends TestCase
         ];
     }
 
-    public function testEmptyConstructor()
+    public function testEmptyConstructor(): void
     {
         $loader = new FilesystemLoader();
         $this->assertEquals([], $loader->getPaths());
     }
 
-    public function testGetNamespaces()
+    public function testGetNamespaces(): void
     {
         $loader = new FilesystemLoader(sys_get_temp_dir());
         $this->assertEquals([FilesystemLoader::MAIN_NAMESPACE], $loader->getNamespaces());
@@ -160,7 +163,7 @@ class FilesystemTest extends TestCase
         $this->assertEquals([FilesystemLoader::MAIN_NAMESPACE, 'named'], $loader->getNamespaces());
     }
 
-    public function testFindTemplateExceptionNamespace()
+    public function testFindTemplateExceptionNamespace(): void
     {
         $basePath = __DIR__.'/Fixtures';
 
@@ -175,7 +178,7 @@ class FilesystemTest extends TestCase
         }
     }
 
-    public function testFindTemplateWithCache()
+    public function testFindTemplateWithCache(): void
     {
         $basePath = __DIR__.'/Fixtures';
 
@@ -190,7 +193,7 @@ class FilesystemTest extends TestCase
         $this->assertEquals("path\n", $loader->getSourceContext('index.html')->getCode());
     }
 
-    public function testLoadTemplateAndRenderBlockWithCache()
+    public function testLoadTemplateAndRenderBlockWithCache(): void
     {
         $loader = new FilesystemLoader([]);
         $loader->addPath(__DIR__.'/Fixtures/themes/theme2');
@@ -218,7 +221,8 @@ class FilesystemTest extends TestCase
     /**
      * @dataProvider getArrayInheritanceTests
      */
-    public function testArrayInheritance(string $templateName)
+    #[DataProvider('getArrayInheritanceTests')]
+    public function testArrayInheritance(string $templateName): void
     {
         $loader = new FilesystemLoader([]);
         $loader->addPath(__DIR__.'/Fixtures/inheritance');
@@ -229,7 +233,7 @@ class FilesystemTest extends TestCase
         $this->assertSame('VALID Child', $template->renderBlock('body', []));
     }
 
-    public function testLoadTemplateFromPhar()
+    public function testLoadTemplateFromPhar(): void
     {
         $loader = new FilesystemLoader([]);
         // phar-sample.phar was created with the following script:
@@ -239,7 +243,7 @@ class FilesystemTest extends TestCase
         $this->assertSame('hello from phar', $loader->getSourceContext('hello.twig')->getCode());
     }
 
-    public function testTemplateExistsAlwaysReturnsBool()
+    public function testTemplateExistsAlwaysReturnsBool(): void
     {
         $loader = new FilesystemLoader([]);
         $this->assertFalse($loader->exists("foo\0.twig"));

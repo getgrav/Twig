@@ -8,6 +8,18 @@ The ``include`` function returns the rendered content of a template:
     {{ include('template.html.twig') }}
     {{ include(some_var) }}
 
+The returned content is a ``\Twig\Markup`` instance, so it is considered safe
+and is not escaped again when you store it in a variable and print it later:
+
+.. code-block:: twig
+
+    {% set body = include('body.html.twig') %}
+    {{ body }} {# rendered as-is, not re-escaped #}
+
+Beware that, like any safe value, it is not re-escaped for the context it ends
+up in, so only embed it in the same context it was rendered for (typically
+HTML).
+
 Included templates have access to the variables of the active context.
 
 If you are using the filesystem loader, the templates are looked for in the
@@ -60,12 +72,16 @@ inclusion. The first template that exists will be rendered:
 If ``ignore_missing`` is set, it will fall back to rendering nothing if none
 of the templates exist, otherwise it will throw an exception.
 
-When including a template created by an end user, you should consider
-:doc:`sandboxing<../sandbox>` it:
+When including a template created by an end user, you should
+:doc:`sandbox<../sandbox>` it.
 
-.. code-block:: twig
+.. deprecated:: 3.29
 
-    {{ include('page.html.twig', sandboxed: true) }}
+    Sandboxing the included template via the ``sandboxed`` argument is
+    deprecated as of Twig 3.29. Render the untrusted template with the
+    ``Twig\Sandbox\Sandbox`` class from PHP or the
+    :doc:`render_sandboxed() function <render_sandboxed>` from a trusted Twig
+    template instead.
 
 Arguments
 ---------
@@ -74,4 +90,5 @@ Arguments
 * ``variables``:      The variables to pass to the template
 * ``with_context``:   Whether to pass the current context variables or not
 * ``ignore_missing``: Whether to ignore missing templates or not
-* ``sandboxed``:      Whether to sandbox the template or not
+* ``sandboxed``:      Whether to sandbox the template or not (deprecated as of
+  Twig 3.29)

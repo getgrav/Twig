@@ -41,6 +41,7 @@ abstract class Template
     protected $sandbox;
 
     private $useYield;
+    private ?MacroNamespace $macroNamespace = null;
 
     public function __construct(
         protected Environment $env,
@@ -79,6 +80,14 @@ abstract class Template
         if (null !== $this->parent) {
             return $this->parent;
         }
+
+        // The compiled doGetParent() may evaluate user expressions (filters,
+        // functions, method calls) when the parent name is dynamic. Make sure
+        // the sandbox security check runs first so those expressions cannot
+        // bypass the allow-list when getParent() is reached before the first
+        // ensureSecurityChecked() call on this template (e.g. via a macro call
+        // resolved against a parent, or yieldBlock() into a pre-warmed instance).
+        $this->ensureSecurityChecked();
 
         if (!$parent = $this->doGetParent($context)) {
             return false;
@@ -399,24 +408,10 @@ abstract class Template
         $blocks = array_merge($this->blocks, $blocks);
 
         try {
+            $this->ensureSecurityChecked();
             yield from $this->doDisplay($context, $blocks);
-        } catch (Error $e) {
-            if (!$e->getSourceContext()) {
-                $e->setSourceContext($this->getSourceContext());
-            }
-
-            // this is mostly useful for \Twig\Error\LoaderError exceptions
-            // see \Twig\Error\LoaderError
-            if (-1 === $e->getTemplateLine()) {
-                $e->guess();
-            }
-
-            throw $e;
         } catch (\Throwable $e) {
-            $e = new RuntimeError(\sprintf('An exception has been thrown during the rendering of a template ("%s").', $e->getMessage()), -1, $this->getSourceContext(), $e);
-            $e->guess();
-
-            throw $e;
+            $this->handleException($e);
         }
     }
 
@@ -431,6 +426,8 @@ abstract class Template
         } elseif (isset($this->blocks[$name])) {
             $template = $this->blocks[$name][0];
             $block = $this->blocks[$name][1];
+            // expose this template's own blocks so nested block() calls resolve against them when the block is rendered directly (e.g. block(name, template))
+            $blocks = array_merge($this->blocks, $blocks);
         } else {
             $template = null;
             $block = null;
@@ -443,24 +440,10 @@ abstract class Template
 
         if (null !== $template) {
             try {
+                $template->ensureSecurityChecked();
                 yield from $template->$block($context, $blocks);
-            } catch (Error $e) {
-                if (!$e->getSourceContext()) {
-                    $e->setSourceContext($template->getSourceContext());
-                }
-
-                // this is mostly useful for \Twig\Error\LoaderError exceptions
-                // see \Twig\Error\LoaderError
-                if (-1 === $e->getTemplateLine()) {
-                    $e->guess();
-                }
-
-                throw $e;
             } catch (\Throwable $e) {
-                $e = new RuntimeError(\sprintf('An exception has been thrown during the rendering of a template ("%s").', $e->getMessage()), -1, $template->getSourceContext(), $e);
-                $e->guess();
-
-                throw $e;
+                $template->handleException($e);
             }
         } elseif ($parent = $this->getParent($context)) {
             yield from $parent->unwrap()->yieldBlock($name, $context, array_merge($this->blocks, $blocks), false, $templateContext ?? $this);
@@ -494,33 +477,21 @@ abstract class Template
         }
     }
 
-    protected function hasMacro(string $name, array $context): bool
+    /**
+     * @internal
+     */
+    public function getMacroNamespace(): MacroNamespace
     {
-        if (method_exists($this, $name)) {
-            return true;
-        }
-
-        if (!$parent = $this->getParent($context)) {
-            return false;
-        }
-
-        return $parent->hasMacro($name, $context);
+        return $this->macroNamespace ??= new MacroNamespace($this);
     }
 
-    protected function getTemplateForMacro(string $name, array $context, int $line, Source $source): self
+    /**
+     * Runs the sandbox security check against the current sandbox state.
+     *
+     * @internal
+     */
+    public function ensureSecurityChecked(): void
     {
-        if (method_exists($this, $name)) {
-            return $this;
-        }
-
-        $parent = $this;
-        while ($parent = $parent->getParent($context)) {
-            if (method_exists($parent, $name)) {
-                return $parent;
-            }
-        }
-
-        throw new RuntimeError(\sprintf('Macro "%s" is not defined in template "%s".', substr($name, \strlen('macro_')), $this->getTemplateName()), $line, $source);
     }
 
     /**
@@ -532,4 +503,23 @@ abstract class Template
      * @return iterable<scalar|\Stringable|null>
      */
     abstract protected function doDisplay(array $context, array $blocks = []): iterable;
+
+    private function handleException(\Throwable $error): never
+    {
+        if ($error instanceof Error) {
+            if (!$error->getSourceContext()) {
+                $error->setSourceContext($this->getSourceContext());
+            }
+            if (-1 === $error->getTemplateLine()) {
+                $error->guess();
+            }
+
+            throw $error;
+        }
+
+        $error = new RuntimeError(\sprintf('An exception has been thrown during the rendering of a template ("%s").', $error->getMessage()), -1, $this->getSourceContext(), $error);
+        $error->guess();
+
+        throw $error;
+    }
 }

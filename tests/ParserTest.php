@@ -20,16 +20,20 @@ namespace Twig\Tests;
  * file that was distributed with this source code.
  */
 
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
+use Symfony\Bridge\PhpUnit\ExpectDeprecationTrait;
 use Twig\Environment;
 use Twig\Error\SyntaxError;
 use Twig\Lexer;
 use Twig\Loader\ArrayLoader;
 use Twig\Node\EmptyNode;
 use Twig\Node\Expression\ConstantExpression;
+use Twig\Node\Expression\GetAttrExpression;
+use Twig\Node\Expression\MacroReferenceExpression;
+use Twig\Node\MacroDeclarationNode;
 use Twig\Node\Node;
-use Twig\Node\Nodes;
-use Twig\Node\SetNode;
 use Twig\Node\TextNode;
 use Twig\Parser;
 use Twig\Source;
@@ -39,7 +43,9 @@ use Twig\TokenStream;
 
 class ParserTest extends TestCase
 {
-    public function testUnknownTag()
+    use ExpectDeprecationTrait;
+
+    public function testUnknownTag(): void
     {
         $stream = new TokenStream([
             new Token(Token::BLOCK_START_TYPE, '', 1),
@@ -55,7 +61,7 @@ class ParserTest extends TestCase
         $parser->parse($stream);
     }
 
-    public function testUnknownTagWithoutSuggestions()
+    public function testUnknownTagWithoutSuggestions(): void
     {
         $stream = new TokenStream([
             new Token(Token::BLOCK_START_TYPE, '', 1),
@@ -71,78 +77,7 @@ class ParserTest extends TestCase
         $parser->parse($stream);
     }
 
-    /**
-     * @dataProvider getFilterBodyNodesData
-     */
-    public function testFilterBodyNodes($input, $expected)
-    {
-        $parser = $this->getParser();
-        $m = new \ReflectionMethod($parser, 'filterBodyNodes');
-
-        $this->assertEquals($expected, $m->invoke($parser, $input));
-    }
-
-    public static function getFilterBodyNodesData()
-    {
-        return [
-            [
-                new Nodes([new TextNode('   ', 1)]),
-                new Nodes([]),
-            ],
-            [
-                $input = new Nodes([new SetNode(false, new EmptyNode(), new EmptyNode(), 1)]),
-                $input,
-            ],
-            [
-                $input = new Nodes([new SetNode(true, new EmptyNode(), new Nodes([new Nodes([new TextNode('foo', 1)])]), 1)]),
-                $input,
-            ],
-        ];
-    }
-
-    /**
-     * @dataProvider getFilterBodyNodesDataThrowsException
-     */
-    public function testFilterBodyNodesThrowsException($input)
-    {
-        $parser = $this->getParser();
-
-        $m = new \ReflectionMethod($parser, 'filterBodyNodes');
-
-        $this->expectException(SyntaxError::class);
-        $m->invoke($parser, $input);
-    }
-
-    public static function getFilterBodyNodesDataThrowsException()
-    {
-        return [
-            [new TextNode('foo', 1)],
-            [new Nodes([new Nodes([new TextNode('foo', 1)])])],
-        ];
-    }
-
-    /**
-     * @dataProvider getFilterBodyNodesWithBOMData
-     */
-    public function testFilterBodyNodesWithBOM($emptyNode)
-    {
-        $parser = $this->getParser();
-
-        $m = new \ReflectionMethod($parser, 'filterBodyNodes');
-        $this->assertNull($m->invoke($parser, new TextNode(\chr(0xEF).\chr(0xBB).\chr(0xBF).$emptyNode, 1)));
-    }
-
-    public static function getFilterBodyNodesWithBOMData()
-    {
-        return [
-            [' '],
-            ["\t"],
-            ["\n"],
-            ["\n\t\n   "],
-        ];
-    }
-
-    public function testParseIsReentrant()
+    public function testParseIsReentrant(): void
     {
         $twig = new Environment(new ArrayLoader(), [
             'autoescape' => false,
@@ -166,7 +101,7 @@ class ParserTest extends TestCase
         $this->assertNull($p->getValue($parser));
     }
 
-    public function testGetVarName()
+    public function testGetVarName(): void
     {
         $twig = new Environment(new ArrayLoader(), [
             'autoescape' => false,
@@ -186,7 +121,108 @@ EOF, 'index')));
         $this->addToAssertionCount(1);
     }
 
-    public function testImplicitMacroArgumentDefaultValues()
+    /**
+     * @dataProvider provideMacroTargetExpressions
+     */
+    #[DataProvider('provideMacroTargetExpressions')]
+    public function testMacroTargetsOnlyCompileAsMacroReferences(string $expression): void
+    {
+        $twig = new Environment(new ArrayLoader());
+        $module = $twig->parse($twig->tokenize(new Source("{% import _self as macros %}{{ $expression }}", 'index')));
+        $macroReferences = [];
+        $attributeExpressions = [];
+
+        $this->collectExpressions($module, $macroReferences, $attributeExpressions);
+
+        $this->assertCount(1, $macroReferences);
+        $this->assertSame([], $attributeExpressions);
+    }
+
+    public static function provideMacroTargetExpressions(): iterable
+    {
+        foreach (['_self', 'macros'] as $target) {
+            yield $target.' static with parentheses' => [$target.'.foo()'];
+            yield $target.' grouped static with parentheses' => ['('.$target.'.foo())'];
+            yield $target.' dynamic with parentheses' => [$target.'.(name)()'];
+            yield $target.' grouped dynamic with parentheses' => ['('.$target.'.(name)())'];
+        }
+    }
+
+    /**
+     * @dataProvider provideMacroTargetExpressionsWithoutParentheses
+     *
+     * @group legacy
+     */
+    #[DataProvider('provideMacroTargetExpressionsWithoutParentheses')]
+    #[Group('legacy')]
+    public function testMacroTargetsWithoutParenthesesAreDeprecated(string $expression): void
+    {
+        $twig = new Environment(new ArrayLoader());
+
+        $this->expectDeprecation('Since twig/twig 3.29: Omitting parentheses when calling a macro is deprecated and will throw a SyntaxError in Twig 4.0; add parentheses after the macro name in "index" at line 1.');
+
+        $module = $twig->parse($twig->tokenize(new Source("{% import _self as macros %}{{ $expression }}", 'index')));
+        $macroReferences = [];
+        $attributeExpressions = [];
+
+        $this->collectExpressions($module, $macroReferences, $attributeExpressions);
+
+        $this->assertCount(1, $macroReferences);
+        $this->assertSame([], $attributeExpressions);
+    }
+
+    public static function provideMacroTargetExpressionsWithoutParentheses(): iterable
+    {
+        foreach (['_self', 'macros'] as $target) {
+            yield $target.' static without parentheses' => [$target.'.foo'];
+            yield $target.' grouped static without parentheses' => ['('.$target.'.foo)'];
+            yield $target.' dynamic without parentheses' => [$target.'.(name)'];
+            yield $target.' grouped dynamic without parentheses' => ['('.$target.'.(name))'];
+        }
+    }
+
+    /**
+     * @dataProvider provideMacroTargetExpressionsWithoutParentheses
+     */
+    #[DataProvider('provideMacroTargetExpressionsWithoutParentheses')]
+    public function testMacroTargetsWithoutParenthesesAreAllowedInDefinedTest(string $expression): void
+    {
+        $twig = new Environment(new ArrayLoader());
+
+        $module = $twig->parse($twig->tokenize(new Source("{% import _self as macros %}{{ $expression is defined }}{{ $expression is not defined }}", 'index')));
+        $macroReferences = [];
+        $attributeExpressions = [];
+
+        $this->collectExpressions($module, $macroReferences, $attributeExpressions);
+
+        $this->assertCount(2, $macroReferences);
+        $this->assertSame([], $attributeExpressions);
+    }
+
+    /**
+     * @dataProvider provideMacroTargetExpressions
+     *
+     * @group legacy
+     */
+    #[DataProvider('provideMacroTargetExpressions')]
+    #[Group('legacy')]
+    public function testMacroTargetsWithParenthesesAreDeprecatedInDefinedTest(string $expression): void
+    {
+        $twig = new Environment(new ArrayLoader());
+
+        $this->expectDeprecation('Since twig/twig 3.29: Using parentheses when testing a macro with the "defined" test is deprecated and will throw a SyntaxError in Twig 4.0; remove the parentheses after the macro name in "index" at line 1.');
+
+        $module = $twig->parse($twig->tokenize(new Source("{% import _self as macros %}{{ $expression is defined }}", 'index')));
+        $macroReferences = [];
+        $attributeExpressions = [];
+
+        $this->collectExpressions($module, $macroReferences, $attributeExpressions);
+
+        $this->assertCount(1, $macroReferences);
+        $this->assertSame([], $attributeExpressions);
+    }
+
+    public function testImplicitMacroArgumentDefaultValues(): void
     {
         $template = '{% macro marco (po, lo = true) %}{% endmacro %}';
         $lexer = new Lexer(new Environment(new ArrayLoader()));
@@ -206,6 +242,19 @@ EOF, 'index')));
         $this->assertTrue($argumentNodes->getNode(3)->getAttribute('value'));
     }
 
+    public function testMacroDeclarationIsRepresentedInTheTemplateBody(): void
+    {
+        $twig = new Environment(new ArrayLoader());
+        $module = $twig->parse($twig->tokenize(new Source('{% macro input() %}{% endmacro %}', 'index')));
+        $declaration = $module->getNode('body')->getNode('0');
+
+        $this->assertInstanceOf(MacroDeclarationNode::class, $declaration);
+        $this->assertSame('input', $declaration->getAttribute('name'));
+        $this->assertSame('macro', $declaration->getNodeTag());
+        $this->assertCount(1, $module->getNode('macros'));
+        $this->assertNotSame($declaration, $module->getNode('macros')->getNode('input'));
+    }
+
     public function testEmbeddedTemplatesHaveSequentialIndices(): void
     {
         $template = new Source('{% embed "first" %}{% endembed %}{% embed "second" %}{% endembed %}', 'index');
@@ -218,6 +267,84 @@ EOF, 'index')));
 
         $this->assertSame(1, $embeds->getNode(0)->getAttribute('index'));
         $this->assertSame(2, $embeds->getNode(1)->getAttribute('index'));
+    }
+
+    public function testBodyForChildTemplates(): void
+    {
+        $twig = new Environment(new ArrayLoader());
+        $node = $twig->parse($twig->tokenize(new Source(<<<EOF
+{% extends "base" %}
+
+{% block header %}
+    header
+{% endblock %}
+
+{% set foo = 'bar' %}
+
+{% block footer %}
+    footer
+{% endblock %}
+
+EOF, 'index')));
+
+        $body = $node->getNode('body')->getNode('0');
+        $this->assertCount(2, $body);
+        $this->assertSame('extends', $body->getNode('0')->getNodeTag());
+        $this->assertSame('set', $body->getNode('4')->getNodeTag());
+    }
+
+    public function testCleanupBodyForChildTemplatesWithASingleNodeBody(): void
+    {
+        $twig = new Environment(new ArrayLoader());
+        $twig->addTokenParser(new ParentSettingTokenParser());
+
+        $node = $twig->parse($twig->tokenize(new Source('{% set_parent %}', 'index')));
+
+        $body = $node->getNode('body')->getNode('0');
+        $this->assertInstanceOf(EmptyNode::class, $body);
+    }
+
+    public function testBodyForParentTemplates(): void
+    {
+        $twig = new Environment(new ArrayLoader());
+        $node = $twig->parse($twig->tokenize(new Source(<<<EOF
+{% block header %}
+    header
+{% endblock %}
+
+{% set foo = 'bar' %}
+
+{% block footer %}
+    footer
+{% endblock %}
+
+EOF, 'index')));
+
+        $body = $node->getNode('body')->getNode('0');
+        $this->assertCount(5, $body);
+        $this->assertSame('block', $body->getNode('0')->getNodeTag());
+        $this->assertInstanceOf(TextNode::class, $body->getNode('1'));
+        $this->assertSame('set', $body->getNode('2')->getNodeTag());
+        $this->assertInstanceOf(TextNode::class, $body->getNode('3'));
+        $this->assertSame('block', $body->getNode('4')->getNodeTag());
+    }
+
+    /**
+     * @param list<MacroReferenceExpression> $macroReferences
+     * @param list<GetAttrExpression>        $attributeExpressions
+     */
+    private function collectExpressions(Node $node, array &$macroReferences, array &$attributeExpressions): void
+    {
+        if ($node instanceof MacroReferenceExpression) {
+            $macroReferences[] = $node;
+        }
+        if ($node instanceof GetAttrExpression) {
+            $attributeExpressions[] = $node;
+        }
+
+        foreach ($node as $child) {
+            $this->collectExpressions($child, $macroReferences, $attributeExpressions);
+        }
     }
 
     protected function getParser()
@@ -253,5 +380,22 @@ class TestTokenParser extends AbstractTokenParser
     public function getTag(): string
     {
         return 'test';
+    }
+}
+
+class ParentSettingTokenParser extends AbstractTokenParser
+{
+    public function parse(Token $token): Node
+    {
+        $this->parser->setParent(new ConstantExpression('base', $token->getLine()), false);
+        $this->parser->getStream()->expect(Token::BLOCK_END_TYPE);
+
+        // returns a blank text node so the whole child body is a single removable node
+        return new TextNode('   ', $token->getLine());
+    }
+
+    public function getTag(): string
+    {
+        return 'set_parent';
     }
 }
