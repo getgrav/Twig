@@ -21,6 +21,15 @@ use Twig\Runtime\EscaperRuntime;
 use Twig\TokenParser\AutoEscapeTokenParser;
 use Twig\TwigFilter;
 
+/**
+ * GRAV FORK: not final (upstream made it final in 3.10).
+ *
+ * Grav\Common\Twig\TwigEnvironment::getExtension() returns a subclass of this
+ * that keeps the pre-3.9 EscaperExtension::setEscaper() call site working by
+ * forwarding to EscaperRuntime. That shim checks isFinal() and quietly stops
+ * shimming when the class is final, so restoring "final" here breaks callers
+ * SILENTLY rather than fataling. Pinned by Grav's TwigForkPatchesTest.
+ */
 class EscaperExtension extends AbstractExtension
 {
     private $environment;
