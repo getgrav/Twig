@@ -569,6 +569,16 @@ class Parser
             return new EmptyNode();
         }
 
+        if ($body instanceof IfNode) {
+            // GRAV FORK: when a child template wraps everything in a single "if", subparse()
+            // returns that "if" as the body itself instead of a container holding it. The loop
+            // below would then walk the "if"'s own sub-nodes ("tests"/"else") and never see the
+            // block references inside it, so handle that node here.
+            $this->cleanupTransparentBodyNodes($body);
+
+            return $body;
+        }
+
         foreach ($body as $k => $node) {
             if ($node instanceof BlockReferenceNode) {
                 // as it has a parent, the block reference won't be used

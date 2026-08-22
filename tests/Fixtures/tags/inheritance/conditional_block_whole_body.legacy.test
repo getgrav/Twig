@@ -1,0 +1,16 @@
+--TEST--
+"block" tags under an "if" that wraps the whole child template body (GRAV FORK)
+--DEPRECATION--
+Since twig/twig 3.28: Using the "extends" tag outside the root of a template is deprecated in index.twig at line 3.
+--TEMPLATE--
+{% if true %}
+{% extends "layout.twig" %}
+{% block content %}FOO{% endblock %}
+{% block footer %}BAR{% endblock %}
+{% endif %}
+--TEMPLATE(layout.twig)--
+[{% block content %}{% endblock %}][{% block footer %}{% endblock %}]
+--DATA--
+return []
+--EXPECT--
+[FOO][BAR]
