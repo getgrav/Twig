@@ -27,14 +27,13 @@ use Twig\Node\Expression\AbstractExpression;
 use Twig\Node\Expression\Variable\AssignMacroVariable;
 use Twig\Node\Expression\Variable\MacroVariable;
 use Twig\Node\IfNode;
-use Twig\Node\MacroImportsNode;
 use Twig\Node\MacroNode;
 use Twig\Node\MacrosNode;
 use Twig\Node\ModuleNode;
 use Twig\Node\Node;
+use Twig\Node\NodeDocumentation;
 use Twig\Node\Nodes;
 use Twig\Node\PrintNode;
-use Twig\Node\SkipLazyMacroImportsNode;
 use Twig\Node\TextNode;
 use Twig\TokenParser\TokenParserInterface;
 use Twig\Util\ReflectionCallable;
@@ -52,6 +51,8 @@ class Parser
     private $expressionParser;
     private $blocks;
     private $blockStack;
+    /** @var list<Node|null> */
+    private array $documentationTargets = [];
     private $macros;
     private $importedSymbols;
     private $traits;
@@ -101,6 +102,7 @@ class Parser
         $this->stream = $stream;
         $this->parent = null;
         $this->blocks = [];
+        $this->documentationTargets = [];
         $this->macros = [];
         $this->traits = [];
         $this->blockStack = [];
@@ -128,12 +130,11 @@ class Parser
             $body = $this->cleanupBodyForChildTemplates($body);
         }
 
-        $body = new BodyNode([$body]);
         $node = new ModuleNode(
-            $body,
+            new BodyNode([$body]),
             $this->parent,
             $this->blocks ? new Nodes($this->blocks) : new EmptyNode(),
-            new MacrosNode($this->macros, new MacroImportsNode($body)),
+            new MacrosNode($this->macros),
             $this->traits ? new Nodes($this->traits) : new EmptyNode(),
             $this->embeddedTemplates ? new Nodes($this->embeddedTemplates) : new EmptyNode(),
             $stream->getSourceContext(),
@@ -145,11 +146,6 @@ class Parser
          * @var ModuleNode $node
          */
         $node = $traverser->traverse($node);
-
-        $macros = $node->getNode('macros');
-        if ($macros instanceof MacrosNode && $macros->hasImports()) {
-            $node->setNode('display_start', new Nodes([new SkipLazyMacroImportsNode(), $node->getNode('display_start')]));
-        }
 
         // restore previous stack so previous parse() call can resume working
         foreach (array_pop($this->stack) as $key => $val) {
@@ -193,11 +189,13 @@ class Parser
                     $token = $this->stream->next();
                     $expr = $this->parseExpression();
                     $this->stream->expect(Token::VAR_END_TYPE);
-                    $rv[] = new PrintNode($expr, $token->getLine());
+                    $node = new PrintNode($expr, $token->getLine());
+                    NodeDocumentation::add($node, $token);
+                    $rv[] = $node;
                     break;
 
                 case $this->stream->getCurrent()->test(Token::BLOCK_START_TYPE):
-                    $this->stream->next();
+                    $startToken = $this->stream->next();
                     $token = $this->getCurrentToken();
 
                     if (!$token->test(Token::NAME_TYPE)) {
@@ -235,11 +233,22 @@ class Parser
                     $this->stream->next();
 
                     $subparser->setParser($this);
-                    $node = $subparser->parse($token);
+                    $documentationTargetIndex = \count($this->documentationTargets);
+                    $this->documentationTargets[] = null;
+                    try {
+                        $node = $subparser->parse($token);
+                        $documentationTarget = $this->documentationTargets[$documentationTargetIndex];
+                    } finally {
+                        array_pop($this->documentationTargets);
+                    }
                     if (!$node) {
                         trigger_deprecation('twig/twig', '3.12', 'Returning "null" from "%s" is deprecated and forbidden by "TokenParserInterface".', $subparser::class);
                     } else {
                         $node->setNodeTag($subparser->getTag());
+                        NodeDocumentation::add($node, $startToken);
+                        if (null !== $documentationTarget && $node !== $documentationTarget) {
+                            NodeDocumentation::move($node, $documentationTarget);
+                        }
                         $rv[] = $node;
                     }
                     break;
@@ -311,10 +320,22 @@ class Parser
         return isset($this->macros[$name]);
     }
 
+    public function setDocumentationTarget(Node $node): void
+    {
+        if (null === $index = array_key_last($this->documentationTargets)) {
+            throw new \LogicException('A documentation target can only be set while parsing a tag.');
+        }
+        if (null !== $this->documentationTargets[$index]) {
+            throw new \LogicException('The documentation target for a tag can only be set once.');
+        }
+
+        $this->documentationTargets[$index] = $node;
+    }
+
     public function setMacro(string $name, MacroNode $node): void
     {
         if (isset($this->macros[$name])) {
-            trigger_deprecation('twig/twig', '3.29', 'Defining the macro "%s" more than once in "%s" is deprecated and will throw a SyntaxError in Twig 4.0 (first definition at line %d, second at line %d). The last definition is used in Twig 3.', $name, $this->stream->getSourceContext()->getName(), $this->macros[$name]->getTemplateLine(), $node->getTemplateLine());
+            trigger_deprecation('twig/twig', '3.29', 'Defining the macro "%s" more than once in "%s" is deprecated and will throw a SyntaxError in Twig 4.0 (previous definition at line %d, new definition at line %d). The last definition is used in Twig 3.', $name, $this->stream->getSourceContext()->getName(), $this->macros[$name]->getTemplateLine(), $node->getTemplateLine());
         }
 
         $this->macros[$name] = $node;
@@ -332,7 +353,10 @@ class Parser
         return \count($this->traits) > 0;
     }
 
-    public function embedTemplate(ModuleNode $template): void
+    /**
+     * @return void
+     */
+    public function embedTemplate(ModuleNode $template)
     {
         $template->setIndex(++$this->lastEmbedIndex);
 
@@ -565,7 +589,10 @@ class Parser
 
     private function cleanupBodyForChildTemplates(Node $body): Node
     {
-        if ($body instanceof BlockReferenceNode || ($body instanceof TextNode && $body->isBlank())) {
+        if ($body instanceof BlockReferenceNode) {
+            return new EmptyNode();
+        }
+        if ($body instanceof TextNode && $body->isBlank()) {
             return new EmptyNode();
         }
 

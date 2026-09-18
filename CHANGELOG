@@ -1,17 +1,43 @@
-# 3.29.0 (2026-XX-XX)
+# 3.30.0 (2026-XX-XX)
 
+ * Report a clear error when `random`, `reverse`, `shuffle`, and `split` receive a string that is not valid UTF-8
+ * Fix the deprecation about omitting parentheses when calling a macro being reported twice for the same call
+ * Add the macro name to the deprecation about omitting parentheses when calling a macro
+ * Deprecate cloning a `Twig\Environment` instance
+
+# 3.29.0 (2026-09-18)
+
+ * Fix the PHP warning and cryptic error when a block or a macro rendered on its own uses macros imported in the template body
+ * Fix `{% cache %}` always missing in the Symfony bundle when `framework.cache.app` uses a natively tag aware adapter
+ * Fix the sandbox resolving `use` trait templates before checking that the `use` tag is allowed
+ * Fix `html_attr` dropping `style` declarations whose value is `0`, `0.0` or `'0'`
+ * Fix the `default` filter fallback emitting an undefined variable warning when it uses the null-safe operator
+ * Fix the `matches` operator silently treating PCRE execution errors as non-matches; it now throws a `RuntimeError`
+ * Fix `TemplateWrapper::streamBlock()`, `TemplateWrapper::hasBlock()`, and `TemplateWrapper::getBlockNames()` omitting environment globals
+ * Fix exceptions from dynamic parent expressions escaping without template context
+ * Add the `BlockChain` class to compose blocks from multiple templates without using template internals
+ * Fix `TemplateWrapper::hasBlock()` and `TemplateWrapper::getBlockNames()` losing the `extends` line when the parent template does not exist
+ * Fix an output buffer leak when a parent block rendered in an expression throws in non-yield mode
+ * Add the `HtmlExtension::htmlAttrValue()` method to resolve a single HTML attribute value the way the `html_attr` function renders it
+ * Fix `html_attr` JSON encoding a `Stringable` value in a `data-*` attribute instead of using its string representation
+ * Add documentation comments to attach metadata to nodes (experimental)
+ * Fix destructuring patterns containing no variables (empty patterns or sequences with only empty slots) triggering a PHP fatal error instead of a `SyntaxError`
+ * Fix object and mapping destructuring evaluating the right-hand expression more than once
+ * Fix sequence destructuring of iterators throwing a `TypeError`
+ * Fix `MissingExtensionSuggestor` not suggesting the `twig/*-extra` package to install for some `html-extra`, `intl-extra`, and `string-extra` filters and functions
  * Add `TempestMarkdown` to use `tempest/markdown` as the `markdown_to_html` converter
- * Fix imported macros not resolving their own template-level macro imports
+ * Add the `include_only` function to render a template without giving it access to the current context
  * Add the `Twig\Sandbox\SandboxInterface` interface and `Twig\Sandbox\Sandbox` class to render untrusted templates through a dedicated, always-sandboxed environment crafted for it
+ * Reject `TemplateWrapper` instances created by another `Environment`
  * Add the `Twig\Extension\SandboxBridgeExtension` to render sandboxed templates from trusted templates with an explicit output escaping strategy
  * Extract the sandbox runtime enforcement into a new internal `Twig\Sandbox\SecurityChecker` class used by compiled templates and `CoreExtension`
  * Mark `SandboxExtension` as internal, use `Twig\Sandbox\Sandbox` instead
  * Deprecate the `sandboxed` argument of the `include` function, use `Twig\Sandbox\Sandbox` instead
  * Deprecate `SandboxExtension::enableSandbox()`, `disableSandbox()`, and `isSandboxedGlobally()`
  * Normalize destructuring variable AST nodes as assignment targets
- * Fix `IntlExtension` ignoring explicit date/time formats and the `format_date`/`format_time` filters when a date formatter prototype is configured
+ * Fix `IntlExtension` ignoring explicit date/time formats and configured calendars when using a date formatter prototype
  * Add a `format_list` filter to `IntlExtension` to format a list of strings using PHP 8.5's `IntlListFormatter`
- * Fix array access with a `Stringable` key coercing the key to string for `ArrayAccess` objects that use object keys (such as `SplObjectStorage`)
+ * Fix array access with a `Stringable` key for `ArrayObject` and `ArrayIterator` while preserving object keys for `SplObjectStorage`
  * Fix duplicated macro argument names triggering a PHP fatal error instead of a `SyntaxError`
  * Deprecate defining a macro more than once in the same template
  * Deprecate `TemplateVariable` and `AssignTemplateVariable`; use `MacroVariable` and `AssignMacroVariable` instead

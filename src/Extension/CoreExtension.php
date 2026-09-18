@@ -131,6 +131,14 @@ final class CoreExtension extends AbstractExtension
         'SplStack',
         'WeakMap',
     ];
+    /**
+     * @internal
+     */
+    public const STRINGABLE_KEY_ARRAY_ACCESS_CLASSES = [
+        'ArrayIterator',
+        'ArrayObject',
+        'RecursiveArrayIterator',
+    ];
 
     private const DEFAULT_TRIM_CHARS = " \t\n\r\0\x0B";
 
@@ -303,6 +311,7 @@ final class CoreExtension extends AbstractExtension
             new TwigFunction('random', [self::class, 'random'], ['needs_charset' => true]),
             new TwigFunction('date', [$this, 'convertDate']),
             new TwigFunction('include', [self::class, 'include'], ['needs_environment' => true, 'needs_context' => true, 'is_safe' => ['all']]),
+            new TwigFunction('include_only', [self::class, 'includeOnly'], ['needs_environment' => true, 'is_safe' => ['all']]),
             new TwigFunction('source', [self::class, 'source'], ['needs_environment' => true, 'is_safe' => ['all']]),
             new TwigFunction('enum_cases', [self::class, 'enumCases'], ['node_class' => EnumCasesFunction::class]),
             new TwigFunction('enum', [self::class, 'enum'], ['node_class' => EnumFunction::class]),
@@ -486,9 +495,7 @@ final class CoreExtension extends AbstractExtension
                 $values = self::convertEncoding($values, 'UTF-8', $charset);
             }
 
-            // unicode version of str_split()
-            // split at all positions, but not after the start and not before the end
-            $values = preg_split('/(?<!^)(?!$)/u', $values);
+            $values = self::splitIntoCharacters($values, 'random');
 
             if ('UTF-8' !== $charset) {
                 foreach ($values as $i => $value) {
@@ -888,7 +895,7 @@ final class CoreExtension extends AbstractExtension
         }
 
         if ($limit <= 1) {
-            return preg_split('/(?<!^)(?!$)/u', $value);
+            return self::splitIntoCharacters($value, 'split');
         }
 
         $length = mb_strlen($value, $charset);
@@ -995,9 +1002,7 @@ final class CoreExtension extends AbstractExtension
             $string = self::convertEncoding($string, 'UTF-8', $charset);
         }
 
-        preg_match_all('/./us', $string, $matches);
-
-        $string = implode('', array_reverse($matches[0]));
+        $string = implode('', array_reverse(self::splitIntoCharacters($string, 'reverse')));
 
         if ('UTF-8' !== $charset) {
             $string = self::convertEncoding($string, $charset, 'UTF-8');
@@ -1021,7 +1026,7 @@ final class CoreExtension extends AbstractExtension
                 $item = self::convertEncoding($item, 'UTF-8', $charset);
             }
 
-            $item = preg_split('/(?<!^)(?!$)/u', $item, -1);
+            $item = self::splitIntoCharacters($item, 'shuffle');
             shuffle($item);
             $item = implode('', $item);
 
@@ -1177,7 +1182,7 @@ final class CoreExtension extends AbstractExtension
     }
 
     /**
-     * @throws RuntimeError When an invalid pattern is used
+     * @throws RuntimeError When the regular expression cannot be evaluated
      *
      * @internal
      */
@@ -1187,7 +1192,11 @@ final class CoreExtension extends AbstractExtension
             throw new RuntimeError(\sprintf('Regexp "%s" passed to "matches" is not valid', $regexp).substr($m, 12));
         });
         try {
-            return preg_match($regexp, $str ?? '');
+            if (false === $result = preg_match($regexp, $str ?? '')) {
+                throw new RuntimeError(\sprintf('Regexp "%s" passed to "matches" failed: %s.', $regexp, preg_last_error_msg()));
+            }
+
+            return $result;
         } finally {
             restore_error_handler();
         }
@@ -1259,6 +1268,22 @@ final class CoreExtension extends AbstractExtension
         }
 
         return iconv($from, $to, $string ?? '');
+    }
+
+    /**
+     * Unicode version of str_split(): splits at every position except after the start and before the end.
+     *
+     * @return list<string>
+     *
+     * @throws RuntimeError When the string cannot be split into characters
+     */
+    private static function splitIntoCharacters(string $string, string $name): array
+    {
+        if (false === $characters = preg_split('/(?<!^)(?!$)/u', $string)) {
+            throw new RuntimeError(\sprintf('Unable to split the string passed to "%s" into characters: %s.', $name, preg_last_error_msg()));
+        }
+
+        return $characters;
     }
 
     /**
@@ -1399,6 +1424,39 @@ final class CoreExtension extends AbstractExtension
     }
 
     /**
+     * @param list<string|null> $names
+     *
+     * @internal
+     */
+    public static function destructureSequence(array &$context, array $names, \Traversable $sequence): \Traversable
+    {
+        $count = \count($names);
+        if (0 === $count) {
+            return $sequence;
+        }
+
+        $i = 0;
+        foreach ($sequence as $value) {
+            $name = $names[$i];
+            if (null !== $name) {
+                $context[$name] = $value;
+            }
+            if (++$i === $count) {
+                return $sequence;
+            }
+        }
+
+        for (; $i < $count; ++$i) {
+            $name = $names[$i];
+            if (null !== $name) {
+                $context[$name] = null;
+            }
+        }
+
+        return $sequence;
+    }
+
+    /**
      * Checks if a variable is empty.
      *
      *    {# evaluates to true if the foo variable is null, false, or the empty string #}
@@ -1530,6 +1588,22 @@ final class CoreExtension extends AbstractExtension
                 $sandbox->setSandboxed(false);
             }
         }
+    }
+
+    /**
+     * Renders a template without giving it access to the current context.
+     *
+     * @param string|array<string|TemplateWrapper>|TemplateWrapper $template      The template to render or an array of templates to try consecutively
+     * @param array<string, mixed>                                 $variables     The variables to pass to the template
+     * @param bool                                                 $ignoreMissing Whether to ignore missing templates or not
+     *
+     * @return string|Markup
+     *
+     * @internal
+     */
+    public static function includeOnly(Environment $env, $template, array $variables = [], bool $ignoreMissing = false)
+    {
+        return self::include($env, [], $template, $variables, false, $ignoreMissing);
     }
 
     /**
@@ -1705,6 +1779,10 @@ final class CoreExtension extends AbstractExtension
                     $item = (string) $item;
                     goto methodCheck;
                 }
+            }
+
+            if ($object instanceof \ArrayAccess && $arrayItem instanceof \Stringable && \in_array($object::class, self::STRINGABLE_KEY_ARRAY_ACCESS_CLASSES, true)) {
+                $arrayItem = (string) $arrayItem;
             }
 
             if (match (true) {

@@ -24,8 +24,7 @@ final class MacroNamespace
      */
     public function __construct(
         private Template $template,
-        private array $macros = [],
-        private ?\Closure $importsLoader = null,
+        private array $macros,
     ) {
     }
 
@@ -40,7 +39,13 @@ final class MacroNamespace
             return true;
         }
 
-        return str_starts_with($name, 'macro_') && null !== $this->findDeclaredName(substr($name, \strlen('macro_')), $context);
+        if (!str_starts_with($name, 'macro_') || null === $this->findDeclaredName($bareName = substr($name, \strlen('macro_')), $context)) {
+            return false;
+        }
+
+        trigger_deprecation('twig/twig', '3.29', 'Testing whether the macro "%s" is defined via the "macro_"-prefixed name "%s" is deprecated; pass the bare macro name to "%s" instead.', $bareName, $name, MacroReferenceExpression::class);
+
+        return true;
     }
 
     /**
@@ -85,7 +90,6 @@ final class MacroNamespace
     {
         if (isset($this->macros[$name])) {
             $this->template->ensureSecurityChecked();
-            $this->loadImports();
 
             return $this->macros[$name];
         }
@@ -95,7 +99,6 @@ final class MacroNamespace
                 trigger_deprecation('twig/twig', '3.29', 'Calling the macro "%s" (defined in template "%s") as "%s" is deprecated; macro names will be case-sensitive in Twig 4.0.', $declaredName, $this->template->getTemplateName(), $name);
 
                 $this->template->ensureSecurityChecked();
-                $this->loadImports();
 
                 return $macro;
             }
@@ -115,23 +118,6 @@ final class MacroNamespace
             if (null === $namespace = $namespace->getParent($context)) {
                 return null;
             }
-        }
-    }
-
-    private function loadImports(): void
-    {
-        if (null === $loader = $this->importsLoader) {
-            return;
-        }
-
-        // clear before loading so that circular imports don't recurse infinitely
-        $this->importsLoader = null;
-        try {
-            $loader();
-        } catch (\Throwable $e) {
-            $this->importsLoader = $loader;
-
-            throw $e;
         }
     }
 

@@ -11,6 +11,8 @@
 
 namespace Twig;
 
+use Twig\Error\RuntimeError;
+
 /**
  * Exposes a template to userland.
  *
@@ -43,7 +45,7 @@ final class TemplateWrapper
      */
     public function streamBlock(string $name, array $context = []): iterable
     {
-        yield from $this->template->yieldBlock($name, $context);
+        yield from $this->template->yieldBlock($name, $context + $this->env->getGlobals());
     }
 
     public function render(array $context = []): string
@@ -60,7 +62,7 @@ final class TemplateWrapper
 
     public function hasBlock(string $name, array $context = []): bool
     {
-        return $this->template->hasBlock($name, $context);
+        return $this->template->hasBlock($name, $context + $this->env->getGlobals());
     }
 
     /**
@@ -68,7 +70,7 @@ final class TemplateWrapper
      */
     public function getBlockNames(array $context = []): array
     {
-        return $this->template->getBlockNames($context);
+        return $this->template->getBlockNames($context + $this->env->getGlobals());
     }
 
     public function renderBlock(string $name, array $context = []): string
@@ -96,11 +98,21 @@ final class TemplateWrapper
 
     /**
      * @internal
-     *
-     * @return Template
      */
-    public function unwrap()
+    public function isOwnedBy(Environment $env): bool
     {
+        return $this->env === $env && $this->template->isOwnedBy($env);
+    }
+
+    /**
+     * @internal
+     */
+    public function unwrap(Environment $env): Template
+    {
+        if (!$this->isOwnedBy($env)) {
+            throw new RuntimeError(\sprintf('A "%s" can only be used with the "%s" that created it.', self::class, Environment::class));
+        }
+
         return $this->template;
     }
 }

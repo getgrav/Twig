@@ -73,9 +73,9 @@ abstract class Template
      * This method is for internal use only and should never be called
      * directly.
      *
-     * @return self|TemplateWrapper|false The parent template or false if there is no parent
+     * @return self|false The parent template or false if there is no parent
      */
-    public function getParent(array $context): self|TemplateWrapper|false
+    public function getParent(array $context): self|false
     {
         if (null !== $this->parent) {
             return $this->parent;
@@ -89,11 +89,20 @@ abstract class Template
         // resolved against a parent, or yieldBlock() into a pre-warmed instance).
         $this->ensureSecurityChecked();
 
-        if (!$parent = $this->doGetParent($context)) {
+        try {
+            $parent = $this->doGetParent($context);
+        } catch (\Throwable $e) {
+            $this->handleException($e);
+        }
+
+        if (!$parent) {
             return false;
         }
 
-        if ($parent instanceof self || $parent instanceof TemplateWrapper) {
+        if ($parent instanceof TemplateWrapper) {
+            $parent = $this->load($parent, -1);
+        }
+        if ($parent instanceof self) {
             return $this->parents[$parent->getSourceContext()->getName()] = $parent;
         }
 
@@ -164,12 +173,21 @@ abstract class Template
     public function renderParentBlock($name, array $context, array $blocks = []): string
     {
         if (!$this->useYield) {
+            $level = ob_get_level();
             if ($this->env->isDebug()) {
                 ob_start();
             } else {
                 ob_start(static function () { return ''; });
             }
-            $this->displayParentBlock($name, $context, $blocks);
+            try {
+                $this->displayParentBlock($name, $context, $blocks);
+            } catch (\Throwable $e) {
+                while (ob_get_level() > $level) {
+                    ob_end_clean();
+                }
+
+                throw $e;
+            }
 
             return ob_get_clean();
         }
@@ -283,11 +301,11 @@ abstract class Template
     {
         try {
             if (\is_array($template)) {
-                return $this->env->resolveTemplate($template)->unwrap();
+                return $this->env->resolveTemplate($template)->unwrap($this->env);
             }
 
             if ($template instanceof TemplateWrapper) {
-                return $template->unwrap();
+                return $template->unwrap($this->env);
             }
 
             if ($template === $this->getTemplateName()) {
@@ -347,6 +365,23 @@ abstract class Template
     public function unwrap(): self
     {
         return $this;
+    }
+
+    /**
+     * @internal
+     */
+    public function isOwnedBy(Environment $env): bool
+    {
+        return $this->env === $env;
+    }
+
+    /**
+     * Returns whether getParent() has stopped depending on the context, which
+     * only ever happens for a template with no parent or with a constant one.
+     */
+    public function hasFixedParent(): bool
+    {
+        return null !== $this->parent;
     }
 
     /**
@@ -482,7 +517,15 @@ abstract class Template
      */
     public function getMacroNamespace(): MacroNamespace
     {
-        return $this->macroNamespace ??= new MacroNamespace($this);
+        return $this->macroNamespace ??= new MacroNamespace($this, $this->loadDeclaredMacros());
+    }
+
+    /**
+     * @return array<string, TwigMacro>
+     */
+    protected function loadDeclaredMacros(): array
+    {
+        return [];
     }
 
     /**
@@ -492,6 +535,39 @@ abstract class Template
      */
     public function ensureSecurityChecked(): void
     {
+    }
+
+    /**
+     * Checks the "use" tag against the sandbox policy.
+     *
+     * The constructor resolves "use" traits eagerly, which reaches the loader,
+     * so that tag alone is checked here; the rest of the policy still runs at
+     * render time.
+     *
+     * @internal
+     */
+    public function ensureTraitsAllowed(): void
+    {
+        try {
+            $this->checkTraitsAllowed();
+        } catch (\Throwable $e) {
+            $this->handleException($e);
+        }
+    }
+
+    /**
+     * @internal
+     */
+    protected function checkTraitsAllowed(): void
+    {
+    }
+
+    /**
+     * @internal
+     */
+    protected function throwUninitializedMacroNamespace(int $line): never
+    {
+        throw new RuntimeError(\sprintf('Macros imported in the body of template "%s" are not available because the body was not rendered; move the "import" or "from" tag inside the block or the macro that uses it.', $this->getTemplateName()), $line, $this->getSourceContext());
     }
 
     /**

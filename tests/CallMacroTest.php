@@ -11,9 +11,10 @@
 
 namespace Twig\Tests;
 
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
+use Symfony\Bridge\PhpUnit\ExpectDeprecationTrait;
 use Twig\Environment;
-use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
 use Twig\Extension\CoreExtension;
 use Twig\Loader\ArrayLoader;
@@ -22,10 +23,11 @@ use Twig\Sandbox\SecurityNotAllowedMethodError;
 use Twig\Sandbox\SecurityPolicy;
 use Twig\Source;
 use Twig\Template;
-use Twig\TwigFunction;
 
 class CallMacroTest extends TestCase
 {
+    use ExpectDeprecationTrait;
+
     public function testCallMacroResolvesPositionalAndNamedArguments(): void
     {
         $template = $this->load([
@@ -34,78 +36,6 @@ class CallMacroTest extends TestCase
 
         $this->assertSame('Hello World', (string) $this->callMacro($template, 'greet', ['World']));
         $this->assertSame('Hi World', (string) $this->callMacro($template, 'greet', ['name' => 'World', 'greeting' => 'Hi']));
-    }
-
-    public function testNestedMacroImportsResolveAgainstGlobals(): void
-    {
-        $twig = new Environment(new ArrayLoader([
-            'index' => '{% import "outer" as outer %}{{ outer.render() }}',
-            'outer' => '{% import macro_template as macros %}{% macro render() %}{{ macros.render() }}{% endmacro %}',
-            'first' => '{% macro render() %}first{% endmacro %}',
-        ]));
-        $twig->addGlobal('macro_template', 'first');
-
-        $this->assertSame('first', $twig->render('index', []));
-    }
-
-    public function testNestedMacroImportsCannotUseTheImportingContext(): void
-    {
-        $twig = new Environment(new ArrayLoader([
-            'index' => '{% import "outer" as outer %}{{ outer.render() }}',
-            'outer' => '{% import macro_template as macros %}{% macro render() %}{{ macros.render() }}{% endmacro %}',
-            'first' => '{% macro render() %}first{% endmacro %}',
-        ]), ['strict_variables' => true]);
-
-        $this->expectException(RuntimeError::class);
-        $this->expectExceptionMessage('Variable "macro_template" does not exist');
-
-        $twig->render('index', ['macro_template' => 'first']);
-    }
-
-    public function testNestedMacroImportsAreInitializedOncePerTemplate(): void
-    {
-        $twig = new Environment(new ArrayLoader([
-            'index' => '{% import "outer" as outer %}{{ outer.render() }}{{ outer.render() }}',
-            'outer' => '{% import pick() as macros %}{% macro render() %}{{ macros.render() }}{% endmacro %}',
-            'first' => '{% macro render() %}first{% endmacro %}',
-        ]));
-        $calls = 0;
-        $twig->addFunction(new TwigFunction('pick', static function () use (&$calls): string {
-            ++$calls;
-
-            return 'first';
-        }));
-
-        $this->assertSame('firstfirst', $twig->render('index', []));
-        $this->assertSame(1, $calls);
-    }
-
-    public function testFailedNestedMacroImportsFailTheSameWayOnRetry(): void
-    {
-        $twig = new Environment(new ArrayLoader([
-            'index' => '{% import "outer" as outer %}{{ outer.render() }}',
-            'outer' => '{% import "missing" as macros %}{% macro render() %}{{ macros.render() }}{% endmacro %}',
-        ]));
-
-        foreach ([1, 2] as $attempt) {
-            try {
-                $twig->render('index', []);
-                $this->fail('Expected LoaderError');
-            } catch (LoaderError $e) {
-                $this->assertStringContainsString('Template "missing" is not defined', $e->getMessage(), "Attempt $attempt");
-            }
-        }
-    }
-
-    public function testRenderTimeImportsKeepUsingTheRenderContext(): void
-    {
-        $twig = new Environment(new ArrayLoader([
-            'index' => '{% include "outer" %}{% import "outer" as outer %}{{ outer.render() }}',
-            'outer' => '{% import macro_template as macros %}{% macro render() %}{{ macros.render() }}{% endmacro %}',
-            'first' => '{% macro render() %}first{% endmacro %}',
-        ]), ['strict_variables' => true]);
-
-        $this->assertSame('first', $twig->render('index', ['macro_template' => 'first']));
     }
 
     public function testMacroNamespaceOnlyExposesMacroOperations(): void
@@ -242,17 +172,19 @@ class CallMacroTest extends TestCase
         $template->getMacroNamespace()->call('macro_missing', [], [], 1, new Source('', 'index'));
     }
 
-    public function testHasMacroResolvesALegacyPrefixedNameSilently(): void
+    /**
+     * @group legacy
+     */
+    #[Group('legacy')]
+    public function testHasMacroResolvesALegacyPrefixedNameWithADeprecation(): void
     {
         $template = $this->load(['index' => '{% macro greet(name) %}Hi {{ name }}{% endmacro %}']);
 
-        $deprecations = $this->collectDeprecations(function () use ($template) {
-            $namespace = $template->getMacroNamespace();
-            $this->assertTrue($namespace->has('macro_greet', []));
-            $this->assertFalse($namespace->has('macro_missing', []));
-        });
+        $this->expectDeprecation('Since twig/twig 3.29: Testing whether the macro "greet" is defined via the "macro_"-prefixed name "macro_greet" is deprecated; pass the bare macro name to "Twig\Node\Expression\MacroReferenceExpression" instead.');
 
-        $this->assertSame([], $deprecations);
+        $namespace = $template->getMacroNamespace();
+        $this->assertTrue($namespace->has('macro_greet', []));
+        $this->assertFalse($namespace->has('macro_missing', []));
     }
 
     public function testCallMacroThrowsForAnUnknownMacro(): void
@@ -263,6 +195,42 @@ class CallMacroTest extends TestCase
         $this->expectExceptionMessage('Macro "missing" is not defined in template "index"');
 
         $template->getMacroNamespace()->call('missing', [], [], 1, new Source('', 'index'));
+    }
+
+    public function testRenderingABlockOnItsOwnReportsMacrosImportedInTheTemplateBody(): void
+    {
+        $template = $this->load([
+            'index' => '{% import "macros" as helpers %}{% block field %}{{ helpers.label() }}{% endblock %}',
+            'macros' => '{% macro label() %}label{% endmacro %}',
+        ]);
+
+        $this->expectException(RuntimeError::class);
+        $this->expectExceptionMessage('Macros imported in the body of template "index" are not available because the body was not rendered; move the "import" or "from" tag inside the block or the macro that uses it in "index" at line 1.');
+
+        $template->renderBlock('field', []);
+    }
+
+    public function testRenderingABlockOnItsOwnUsesMacrosImportedInTheBlock(): void
+    {
+        $template = $this->load([
+            'index' => '{% block field %}{% import "macros" as helpers %}{{ helpers.label() }}{% endblock %}',
+            'macros' => '{% macro label() %}label{% endmacro %}',
+        ]);
+
+        $this->assertSame('label', $template->renderBlock('field', []));
+    }
+
+    public function testCallingAMacroOnItsOwnReportsMacrosImportedInTheTemplateBody(): void
+    {
+        $template = $this->load([
+            'index' => '{% from "macros" import label %}{% macro row() %}{{ label() }}{% endmacro %}',
+            'macros' => '{% macro label() %}label{% endmacro %}',
+        ]);
+
+        $this->expectException(RuntimeError::class);
+        $this->expectExceptionMessage('Macros imported in the body of template "index" are not available because the body was not rendered');
+
+        $this->callMacro($template, 'row', []);
     }
 
     public function testDeprecatedCoreExtensionCallMacroAcceptsMacroNamespace(): void
@@ -303,6 +271,6 @@ class CallMacroTest extends TestCase
     {
         $twig = new Environment(new ArrayLoader($templates));
 
-        return $twig->load('index')->unwrap();
+        return $twig->load('index')->unwrap($twig);
     }
 }

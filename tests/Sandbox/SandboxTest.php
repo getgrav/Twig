@@ -11,8 +11,10 @@
 
 namespace Twig\Tests\Sandbox;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Twig\Environment;
+use Twig\Error\RuntimeError;
 use Twig\Extension\SandboxExtension;
 use Twig\Loader\ArrayLoader;
 use Twig\Markup;
@@ -228,6 +230,34 @@ class SandboxTest extends TestCase
         $sandbox->render('index');
     }
 
+    /**
+     * @dataProvider provideForeignTemplateWrapperUsages
+     */
+    #[DataProvider('provideForeignTemplateWrapperUsages')]
+    public function testRejectsTemplateWrapperFromAnotherEnvironment(string $template, string $foreignTemplate, array $tags = [], array $functions = []): void
+    {
+        $foreign = self::env(['foreign' => $foreignTemplate]);
+        $sandbox = new Sandbox(self::env(['index' => $template]), self::strictPolicy(tags: $tags, functions: $functions));
+
+        $this->expectException(RuntimeError::class);
+        $this->expectExceptionMessage('can only be used with the "Twig\\Environment" that created it');
+
+        $sandbox->render('index', ['foreign' => $foreign->load('foreign')]);
+    }
+
+    public static function provideForeignTemplateWrapperUsages(): iterable
+    {
+        yield 'include tag' => ['{% include foreign %}', 'foreign content', ['include']];
+        yield 'include function' => ['{{ include(foreign) }}', 'foreign content', [], ['include']];
+        yield 'include function fallback' => ['{{ include(["missing", foreign]) }}', 'foreign content', [], ['include']];
+        yield 'include_only function' => ['{{ include_only(foreign) }}', 'foreign content', [], ['include_only']];
+        yield 'extends tag' => ['{% extends foreign %}', 'foreign content', ['extends']];
+        yield 'embed tag' => ['{% embed foreign %}{% endembed %}', 'foreign content', ['embed', 'extends']];
+        yield 'import tag' => ['{% import foreign as macros %}{{ macros.foo() }}', '{% macro foo() %}foreign content{% endmacro %}', ['import']];
+        yield 'from tag' => ['{% from foreign import foo %}{{ foo() }}', '{% macro foo() %}foreign content{% endmacro %}', ['from']];
+        yield 'block function' => ['{{ block("content", foreign) }}', '{% block content %}foreign content{% endblock %}', [], ['block']];
+    }
+
     public function testTheExtendsTagMustBeAllowed(): void
     {
         $templates = [
@@ -242,6 +272,65 @@ class SandboxTest extends TestCase
         $this->expectException(SecurityNotAllowedTagError::class);
         $this->expectExceptionMessage('Tag "extends" is not allowed');
         $denying->render('index');
+    }
+
+    public function testTheUseTagMustBeAllowed(): void
+    {
+        $templates = [
+            'index' => '{% use "blocks" with content as base_content %}{{ block("base_content") }}',
+            'blocks' => '{% block content %}trait content{% endblock %}',
+        ];
+
+        $allowing = new Sandbox(self::env($templates), self::strictPolicy(tags: ['use', 'block'], functions: ['block']));
+        $this->assertSame('trait content', $allowing->render('index'));
+
+        $denying = new Sandbox(self::env(['index' => '{% use "missing" with content as base_content %}']), self::strictPolicy());
+        $this->expectException(SecurityNotAllowedTagError::class);
+        $this->expectExceptionMessage('Tag "use" is not allowed');
+        $denying->render('index');
+    }
+
+    public function testTheUseTagIsCheckedWithoutCheckingTheRestOfThePolicy(): void
+    {
+        // "middle" is only reachable as a trait, and the block carrying the
+        // forbidden filter is overridden by "index", so it never renders.
+        $sandbox = new Sandbox(self::env([
+            'index' => '{% use "middle" %}{% block content %}SAFE{% endblock %}',
+            'middle' => '{% use "leaf" %}{% block content %}{{ "bad"|upper }}{% endblock %}',
+            'leaf' => '',
+        ]), self::strictPolicy(tags: ['use', 'block']));
+
+        $this->assertSame('SAFE', $sandbox->render('index'));
+    }
+
+    public function testTheUseTagIsCheckedBeforeTheTraitTemplateIsLoaded(): void
+    {
+        $sandbox = new Sandbox(self::env([
+            'index' => '{{ block("b", "receiver") is defined ? "YES" : "NO" }}',
+            'receiver' => '{% use "missing" %}',
+        ]), self::strictPolicy(tags: ['block'], functions: ['block']));
+
+        $this->expectException(SecurityNotAllowedTagError::class);
+        $this->expectExceptionMessage('Tag "use" is not allowed');
+        $sandbox->render('index');
+    }
+
+    public function testAPolicyFailureWhileResolvingTraitsKeepsItsTwigContext(): void
+    {
+        $sandbox = new Sandbox(self::env([
+            'index' => "{% use \"empty\" %}\n{{ 'a'|upper }}",
+            'empty' => '',
+        ]), new ThrowingOnUseSecurityPolicy());
+
+        try {
+            $sandbox->render('index');
+            $this->fail('The policy failure should have been reported.');
+        } catch (RuntimeError $e) {
+            $this->assertStringContainsString('Policy backend unreachable', $e->getMessage());
+            $this->assertSame('index', $e->getSourceContext()?->getName());
+            $this->assertSame(2, $e->getTemplateLine());
+            $this->assertInstanceOf(\RuntimeException::class, $e->getPrevious());
+        }
     }
 
     public function testARenderOnAnotherEnvironmentDuringASandboxedRenderIsNotSandboxed(): void
@@ -374,6 +463,24 @@ class SandboxTest extends TestCase
         $policy->setStrict(true);
 
         return $policy;
+    }
+}
+
+final class ThrowingOnUseSecurityPolicy implements SecurityPolicyInterface
+{
+    public function checkSecurity($tags, $filters, $functions, $tests = []): void
+    {
+        if (\in_array('use', $tags, true)) {
+            throw new \RuntimeException('Policy backend unreachable.');
+        }
+    }
+
+    public function checkMethodAllowed($obj, $method): void
+    {
+    }
+
+    public function checkPropertyAllowed($obj, $property): void
+    {
     }
 }
 

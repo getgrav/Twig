@@ -12,7 +12,10 @@ Classes
   final in Twig 4.0. Use ``Twig\Markup`` directly instead of extending it.
 
 * The ``Twig\Node\MacroNode`` class is considered final as of Twig 3.29 and
-  will be final in Twig 4.0.
+  will be final in Twig 4.0. Note that macros are compiled as closures stored
+  in a per-template registry as of Twig 3.29, so overriding
+  ``MacroNode::compile()`` based on the previous contract (emitting a
+  ``macro_``-prefixed method) is not supported anymore.
 
 Functions
 ---------
@@ -471,6 +474,11 @@ Testing Utilities
 
 Environment
 -----------
+
+* Cloning a ``Twig\Environment`` instance is deprecated as of Twig 3.30 and will
+  throw in Twig 4.0. A clone keeps the templates and runtimes created by the
+  original environment, and those resolve their globals, extensions, and charset
+  against the environment that created them. Build a new environment instead.
 
 * The ``Twig\Environment::mergeGlobals()`` method is deprecated as of Twig 3.14
   and will be removed in Twig 4.0:

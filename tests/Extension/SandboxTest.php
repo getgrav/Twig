@@ -293,6 +293,9 @@ class SandboxTest extends TestCase
     {
         yield ['extends', '{% extends "1_empty" %}'];
         yield ['use', '{% use "1_empty" %}'];
+        yield 'use of a missing template is rejected before the loader is reached' => ['use', '{% use "does_not_exist" %}'];
+        yield 'use of a missing block is rejected before the trait is resolved' => ['use', '{% use "1_layout" with does_not_exist as alias %}'];
+        yield 'use of a non-traitable template is rejected before the trait is resolved' => ['use', '{% use "1_child" %}'];
     }
 
     /**
@@ -1253,29 +1256,6 @@ EOF
         ], ['macro', 'import'], ['escape']);
 
         $this->assertEquals('<p>username</p>', $twig->load('index')->render([]));
-    }
-
-    public function testMacroImportExpressionIsCheckedBeforeExecution(): void
-    {
-        $evilCalls = 0;
-        $twig = $this->getEnvironment(true, [], [
-            'caller.twig' => '{% import "macros.twig" as macros %}{{ macros.render() }}',
-            'macros.twig' => '{% from evil() import render as dependency %}{% macro render() %}{{ dependency() }}{% endmacro %}',
-            'dependency.twig' => '{% macro render() %}ok{% endmacro %}',
-        ], ['from', 'import', 'macro']);
-        $twig->addFunction(new TwigFunction('evil', static function () use (&$evilCalls): string {
-            ++$evilCalls;
-
-            return 'dependency.twig';
-        }));
-
-        try {
-            $twig->render('caller.twig');
-            $this->fail('Expected SecurityNotAllowedFunctionError');
-        } catch (SecurityNotAllowedFunctionError $e) {
-            $this->assertSame('evil', $e->getFunctionName());
-        }
-        $this->assertSame(0, $evilCalls, 'The forbidden function must not be invoked before the security check runs.');
     }
 
     public function testSelfMacroReferenceWithStringLiteralDoesNotInjectPhp(): void

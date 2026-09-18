@@ -22,6 +22,7 @@ use Twig\Node\Expression\Variable\LocalVariable;
 use Twig\Node\MacroDeclarationNode;
 use Twig\Node\MacroNode;
 use Twig\Node\Node;
+use Twig\Node\NodeDocumentation;
 use Twig\Token;
 
 /**
@@ -55,7 +56,8 @@ final class MacroTokenParser extends AbstractTokenParser
         $this->parser->popLocalScope();
         $stream->expect(Token::BLOCK_END_TYPE);
 
-        $this->parser->setMacro($name, new MacroNode($name, new BodyNode([$body]), $arguments, $lineno, $variadicName));
+        $this->parser->setMacro($name, $macro = new MacroNode($name, new BodyNode([$body]), $arguments, $lineno, $variadicName));
+        $this->parser->setDocumentationTarget($macro);
 
         return new MacroDeclarationNode($name, $lineno);
     }
@@ -106,7 +108,8 @@ final class MacroTokenParser extends AbstractTokenParser
             }
 
             $token = $stream->expect(Token::NAME_TYPE, null, 'An argument must be a name');
-            $name = new LocalVariable($token->getValue(), $this->parser->getCurrentToken()->getLine());
+            $name = new LocalVariable($token->getValue(), $token->getLine());
+            NodeDocumentation::add($name, $token);
             if ($token = $stream->nextIf(Token::OPERATOR_TYPE, '=')) {
                 $default = $this->parser->parseExpression();
             } else {
