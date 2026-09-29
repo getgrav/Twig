@@ -13,6 +13,7 @@ namespace Twig\Tests\Sandbox;
 
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
+use Twig\BlockChain;
 use Twig\Environment;
 use Twig\Extension\SandboxExtension;
 use Twig\Extension\StringLoaderExtension;
@@ -21,11 +22,13 @@ use Twig\Loader\LoaderInterface;
 use Twig\Sandbox\CompileTimeSourcePolicyInterface;
 use Twig\Sandbox\SecurityError;
 use Twig\Sandbox\SecurityNotAllowedFilterError;
+use Twig\Sandbox\SecurityNotAllowedFunctionError;
 use Twig\Sandbox\SecurityNotAllowedMethodError;
 use Twig\Sandbox\SecurityNotAllowedPropertyError;
 use Twig\Sandbox\SecurityPolicy;
 use Twig\Sandbox\SourcePolicyInterface;
 use Twig\Source;
+use Twig\Template;
 
 /**
  * GRAV FORK: compile-time source sandboxing, see CompileTimeSourcePolicyInterface.
@@ -61,6 +64,18 @@ class CompileTimeSourcePolicyTest extends TestCase
         'trusted/sandboxed_include_arrow' => "{{ include('trusted/apply', {f: (x) => probe.secret ~ x, items: ['!']}, sandboxed = true) }}",
         'trusted/sandboxed_include_arrow_string' => "{{ include('trusted/apply', {f: (x) => probe ~ x, items: ['!']}, sandboxed = true) }}",
         'trusted/apply' => '{{ items|map(f)|join }}',
+        'trusted/lines' => "<p>\n{{ probe.secret }}</p>",
+        'trusted/dynamic_child' => '{% extends probe.parent %}{% block body %}[{{ name }}]{% endblock %}',
+        'trusted/parent_call' => "{% extends 'trusted/base' %}{% block body %}<{{ probe }}>{{ parent() }}{% endblock %}",
+        'trusted/macro_base' => '{% macro show(v) %}<{{ v }}>{% endmacro %}',
+        'trusted/macro_child' => "{% extends 'trusted/macro_base' %}",
+        'trusted/sandboxed_macros' => "{{ include('trusted/call_macro', sandboxed = true) }}",
+        'trusted/call_macro' => '{% import wrapper as m %}{{ m.show(probe) }}',
+        'trusted/sandboxed_block' => "{{ include('trusted/call_block', sandboxed = true) }}",
+        'trusted/call_block' => "{{ block('body', wrapper) }}",
+        'trusted/sandboxed_extends' => "{{ include('trusted/extends_wrapper', sandboxed = true) }}",
+        'trusted/extends_wrapper' => '{% extends wrapper %}',
+        'trusted/sandbox_tag_wrapper' => '{% sandbox %}{% include wrapper %}{% endsandbox %}',
         'user/print' => '{{ probe }}',
         'user/attr' => '{{ probe.secret }}',
         'user/raw' => '{{ "<i>"|raw }}',
@@ -104,11 +119,11 @@ class CompileTimeSourcePolicyTest extends TestCase
 
     public function testTrustedTemplateCompilesLikeTheSameTemplateWithoutASandbox(): void
     {
-        // the class name, the checker, the guard, and the debug line map it shifts
+        // the class name, the checker, the guard's two methods, and the debug line map it shifts
         $normalize = static fn (string $code): string => preg_replace([
             '/__TwigTemplate_\w+/',
             '/\n\s*\$this->sandbox = [^\n]*/',
-            '/\n\s*public function ensureSecurityChecked\(\): void\n\s*\{\n.*?\n    \}\n/s',
+            '/\n\s*public function ensureSecurityCheckedOrHandOver\(\).*?\n\s*public function ensureSecurityChecked\(\): void\n\s*\{\n.*?\n    \}\n/s',
             '/return array \(.*?\);/',
         ], ['CLASS', '', "\n", 'return DEBUG;'], $code);
 
@@ -299,29 +314,232 @@ class CompileTimeSourcePolicyTest extends TestCase
         $this->assertSame('probe!', $this->env()->render('trusted/sandboxed_include_arrow_string', ['probe' => 'probe']));
     }
 
-    public function testPreloadedTrustedTemplateRefusesToRenderInsideTheSandbox(): void
+    /**
+     * A trusted template loaded before the sandbox turns on (here as a TemplateWrapper
+     * handed to a sandboxed render) runs as its fully checked variant, so it renders
+     * and fails exactly as upstream Twig, where the same instance carries the checks.
+     */
+    public function testPreloadedTrustedTemplateRendersCheckedInsideTheSandbox(): void
+    {
+        foreach (['trusted/sandboxed_include_wrapper', 'trusted/sandbox_tag_wrapper'] as $entry) {
+            foreach (['trusted/child', 'trusted/print', 'trusted/embed', 'trusted/parent_call'] as $name) {
+                $this->assertSameAsUpstream("$entry $name", static fn (Environment $env) => $env->render($entry, ['wrapper' => $env->load($name), 'probe' => 'ok']));
+                $this->assertSameAsUpstream("$entry $name", static fn (Environment $env) => $env->render($entry, ['wrapper' => $env->load($name), 'probe' => new CompileTimeSourcePolicyProbe()]), SecurityNotAllowedMethodError::class);
+            }
+        }
+
+        $this->assertSameAsUpstream('attr', static fn (Environment $env) => $env->render('trusted/sandboxed_include_wrapper', ['wrapper' => $env->load('trusted/attr'), 'probe' => new CompileTimeSourcePolicyProbe(), 'map' => []]), SecurityNotAllowedPropertyError::class);
+        $this->assertSameAsUpstream('filters', static fn (Environment $env) => $env->render('trusted/sandboxed_include_wrapper', ['wrapper' => $env->load('trusted/filters'), 'items' => [1, 2, 3]]), SecurityNotAllowedFilterError::class);
+
+        $env = $this->env();
+        $this->assertSame('<main>[ok]</main>', $env->render('trusted/sandboxed_include_wrapper', ['wrapper' => $env->load('trusted/child'), 'probe' => 'ok']));
+    }
+
+    public function testPreloadedTrustedTemplateKeepsItsDisallowedFunctionBlocked(): void
+    {
+        foreach ([true, false] as $optIn) {
+            $env = $this->env($optIn);
+            $env->addFunction(new \Twig\TwigFunction('forbidden', static fn () => 'forbidden'));
+            $env->setLoader(new CompileTimeSourcePolicyLoader(self::TEMPLATES + ['trusted/forbidden' => '{{ forbidden() }}']));
+            $wrapper = $env->load('trusted/forbidden');
+            $this->assertSame('forbidden', $wrapper->render());
+
+            try {
+                $env->render('trusted/sandboxed_include_wrapper', ['wrapper' => $wrapper]);
+                $this->fail('forbidden() should have been blocked');
+            } catch (SecurityNotAllowedFunctionError $e) {
+                $this->assertSame('forbidden', $e->getFunctionName());
+            }
+        }
+    }
+
+    public function testPreloadedTrustedTemplateReportsTheRightLine(): void
     {
         $env = $this->env();
-        $wrapper = $env->load('trusted/child');
+
+        try {
+            $env->render('trusted/sandboxed_include_wrapper', ['wrapper' => $env->load('trusted/lines'), 'probe' => new CompileTimeSourcePolicyProbe()]);
+            $this->fail('The property should have been blocked');
+        } catch (SecurityNotAllowedPropertyError $e) {
+            $this->assertSame('trusted/lines', $e->getSourceContext()->getName());
+            $this->assertSame(2, $e->getTemplateLine());
+        }
+    }
+
+    public function testPreloadedTrustedBlocksRenderCheckedInsideTheSandbox(): void
+    {
+        // block(name, template): the block comes from the trusted template's own blocks
+        $this->assertSameAsUpstream('block()', static fn (Environment $env) => $env->render('trusted/sandboxed_block', ['wrapper' => $env->load('trusted/child'), 'probe' => 'ok']));
+        $this->assertSameAsUpstream('block()', static fn (Environment $env) => $env->render('trusted/sandboxed_block', ['wrapper' => $env->load('trusted/child'), 'probe' => new CompileTimeSourcePolicyProbe()]), SecurityNotAllowedMethodError::class);
+
+        // blocks handed over in $blocks (a block chain built from the trusted template)
+        foreach (['ok' => null, 'probe' => SecurityNotAllowedMethodError::class] as $probe => $error) {
+            $this->assertSameAsUpstream('chain', function (Environment $env) use ($probe) {
+                $chain = new BlockChain($env, [$env->load('trusted/parent_call')]);
+
+                return $this->sandboxed($env, static fn () => $chain->renderBlock('body', ['probe' => 'ok' === $probe ? 'ok' : new CompileTimeSourcePolicyProbe()]));
+            }, $error);
+        }
+
+        // the wrapper's own block API
+        $this->assertSameAsUpstream('renderBlock', fn (Environment $env) => $this->sandboxed($env, static fn () => $env->load('trusted/parent_call')->renderBlock('body', ['probe' => new CompileTimeSourcePolicyProbe()])), SecurityNotAllowedMethodError::class);
+        $this->assertSameAsUpstream('renderBlock', fn (Environment $env) => $this->sandboxed($env, static fn () => $env->load('trusted/parent_call')->renderBlock('body', ['probe' => 'ok'])));
+    }
+
+    public function testPreloadedTrustedParentIsResolvedChecked(): void
+    {
+        $env = $this->env();
+        $child = $env->load('trusted/child')->unwrap($env);
+
+        // resolving the parent inside the sandbox hands over to the checked child
+        $parent = $this->sandboxed($env, static fn () => $child->getParent([]));
+        $this->assertStringEndsWith('_sandboxed', $parent::class);
+        $this->assertSame('trusted/base', $parent->getTemplateName());
+
+        // a parent resolved earlier is returned as is, and hands over when it runs
+        $env = $this->env();
+        $child = $env->load('trusted/child')->unwrap($env);
+        $this->assertStringEndsWith('_sourced', $child->getParent([])::class);
+        $parent = $this->sandboxed($env, static fn () => $child->getParent([]));
+        $this->assertStringEndsWith('_sourced', $parent::class);
+        $this->assertSame('<main></main>', $this->sandboxed($env, static fn () => $parent->render([])));
+        $this->assertInstanceOf(Template::class, $this->sandboxed($env, static fn () => $parent->ensureSecurityCheckedOrHandOver()));
+
+        // a dynamic parent expression is evaluated with the checks
+        $context = ['probe' => new CompileTimeSourcePolicyProbe(), 'name' => 'n'];
+        $this->assertSameAsUpstream('getParent', fn (Environment $env) => $this->sandboxed($env, static fn () => $env->load('trusted/dynamic_child')->unwrap($env)->getParent($context)->getTemplateName()), SecurityNotAllowedPropertyError::class);
+        $this->assertSameAsUpstream('hasBlock', fn (Environment $env) => $this->sandboxed($env, static fn () => $env->load('trusted/dynamic_child')->hasBlock('nope', $context)), SecurityNotAllowedPropertyError::class);
+        $this->assertSameAsUpstream('extends', static fn (Environment $env) => $env->render('trusted/sandboxed_extends', ['wrapper' => $env->load('trusted/dynamic_child')] + $context), SecurityNotAllowedPropertyError::class);
+        $this->assertSameAsUpstream('extends', static fn (Environment $env) => $env->render('trusted/sandboxed_extends', ['wrapper' => $env->load('trusted/child'), 'probe' => 'ok']));
+    }
+
+    public function testPreloadedTrustedMacrosRunCheckedInsideTheSandbox(): void
+    {
+        foreach (['trusted/macros', 'trusted/macro_child'] as $name) {
+            $call = fn (Environment $env, $value) => $this->sandboxed($env, static fn () => (string) $env->load($name)->unwrap($env)->getMacroNamespace()->call('show', [$value], [], 1, new Source('', 'test')));
+
+            $this->assertSameAsUpstream($name, static fn (Environment $env) => $call($env, 'x'));
+            $this->assertSameAsUpstream($name, static fn (Environment $env) => $call($env, new CompileTimeSourcePolicyProbe()), SecurityNotAllowedMethodError::class);
+
+            // imported inside a sandboxed include
+            $this->assertSameAsUpstream($name, static fn (Environment $env) => $env->render('trusted/sandboxed_macros', ['wrapper' => $env->load($name), 'probe' => 'x']));
+            $this->assertSameAsUpstream($name, static fn (Environment $env) => $env->render('trusted/sandboxed_macros', ['wrapper' => $env->load($name), 'probe' => new CompileTimeSourcePolicyProbe()]), SecurityNotAllowedMethodError::class);
+        }
+
+        $env = $this->env();
+        $this->assertSame('<x>', $env->render('trusted/sandboxed_macros', ['wrapper' => $env->load('trusted/macro_child'), 'probe' => 'x']));
+    }
+
+    public function testNoDelegationWithTheSandboxOff(): void
+    {
+        $env = $this->env();
+        $context = ['probe' => new CompileTimeSourcePolicyProbe(), 'map' => ['key' => 'value'], 'items' => [1, 2, 3], 'name' => 'twig'];
+        $names = ['trusted/print', 'trusted/attr', 'trusted/filters', 'trusted/child', 'trusted/embed', 'trusted/parent_call', 'trusted/macro_child', 'trusted/base'];
+
+        foreach ($names as $name) {
+            $template = $env->load($name);
+            $this->assertNull($template->unwrap($env)->ensureSecurityCheckedOrHandOver(), $name);
+            $template->render($context);
+        }
+        $env->load('trusted/parent_call')->renderBlock('body', $context);
+        (new BlockChain($env, [$env->load('trusted/parent_call')]))->renderBlock('body', $context);
+        $env->load('trusted/macro_child')->unwrap($env)->getMacroNamespace()->call('show', ['x'], [], 1, new Source('', 'test'));
+        $env->load('trusted/child')->unwrap($env)->getParent($context);
+
+        // no checked variant was ever loaded
+        $checker = $env->getExtension(SandboxExtension::class)->getChecker();
+        $checker->setSandboxed(true);
+        try {
+            $sandboxedClasses = array_map(static fn ($name) => $env->getTemplateClass($name), $names);
+        } finally {
+            $checker->setSandboxed(false);
+        }
+        foreach ($sandboxedClasses as $class) {
+            $this->assertStringEndsWith('_sandboxed', $class);
+            $this->assertFalse(class_exists($class, false), $class);
+        }
+    }
+
+    public function testCheckedVariantNeverDelegatesAndKeepsTheEmbedIndex(): void
+    {
+        $env = $this->env();
+        $main = $env->load('trusted/embed')->unwrap($env);
+        $main->render([]);
+        $embedded = $env->loadTemplate($env->getTemplateClass('trusted/embed'), 'trusted/embed', 1);
+        $this->assertStringEndsWith('_sourced___1', $embedded::class);
+
+        $checked = $this->sandboxed($env, static fn () => [$main->ensureSecurityCheckedOrHandOver(), $embedded->ensureSecurityCheckedOrHandOver()]);
+        $this->assertStringEndsWith('_sandboxed', $checked[0]::class);
+        $this->assertStringEndsWith('_sandboxed___1', $checked[1]::class);
+        $this->assertSame($checked[0], $this->sandboxed($env, static fn () => $main->ensureSecurityCheckedOrHandOver()), 'loaded once');
+
+        $this->assertNull($this->sandboxed($env, static fn () => $checked[0]->ensureSecurityCheckedOrHandOver()));
+        $this->assertNull($this->sandboxed($env, static fn () => $checked[1]->ensureSecurityCheckedOrHandOver()));
+    }
+
+    /**
+     * The guard still throws for any path that does not delegate, and for a trusted
+     * template that cannot be loaded again by name.
+     */
+    public function testBackstopStillThrows(): void
+    {
+        $env = $this->env();
+        $template = $env->load('trusted/child')->unwrap($env);
+        $template->ensureSecurityChecked();
+
+        try {
+            $this->sandboxed($env, static fn () => $template->ensureSecurityChecked());
+            $this->fail('The guard should have thrown');
+        } catch (SecurityError $e) {
+            $this->assertStringContainsString('was loaded as a trusted template and cannot be rendered while the sandbox is enabled', $e->getMessage());
+        }
+
+        $string = $env->createTemplate('<{{ probe }}>', 'trusted/string');
+        $this->assertSame('<ok>', $string->render(['probe' => 'ok']));
+        $this->assertStringEndsWith('_sourced', $string->unwrap($env)::class);
+        try {
+            $this->sandboxed($env, static fn () => $string->unwrap($env)->ensureSecurityCheckedOrHandOver());
+            $this->fail('A trusted template that cannot be loaded again should have thrown');
+        } catch (SecurityError $e) {
+            $this->assertStringContainsString('cannot be rendered while the sandbox is enabled', $e->getMessage());
+        }
 
         $this->expectException(SecurityError::class);
         $this->expectExceptionMessage('was loaded as a trusted template and cannot be rendered while the sandbox is enabled');
-        $env->render('trusted/sandboxed_include_wrapper', ['wrapper' => $wrapper, 'probe' => 'ok']);
+        $env->render('trusted/sandboxed_include_wrapper', ['wrapper' => $string, 'probe' => 'ok']);
     }
 
-    public function testPreloadedTrustedMacrosRefuseToRunInsideTheSandbox(): void
+    /**
+     * Runs $scenario against the opted-in environment and against the same policy
+     * without the opt-in (upstream behaviour), and asserts both render the same
+     * output, or both fail with $error.
+     *
+     * @param class-string<SecurityError>|null $error
+     */
+    private function assertSameAsUpstream(string $message, callable $scenario, ?string $error = null): void
     {
-        $env = $this->env();
-        $macros = $env->load('trusted/macros')->unwrap($env);
+        $results = [];
+        foreach ([false, true] as $optIn) {
+            try {
+                $results[] = ['output', $scenario($this->env($optIn))];
+            } catch (SecurityError $e) {
+                $results[] = ['error', $e::class];
+            }
+        }
+
+        $this->assertSame($results[0], $results[1], $message);
+        $this->assertSame(null === $error ? 'output' : 'error', $results[1][0], $message.': '.json_encode($results[1]));
+        if (null !== $error) {
+            $this->assertSame($error, $results[1][1], $message);
+        }
+    }
+
+    private function sandboxed(Environment $env, callable $callback): mixed
+    {
         $checker = $env->getExtension(SandboxExtension::class)->getChecker();
-
-        $this->assertSame('<x>', (string) $macros->getMacroNamespace()->call('show', ['x'], [], 1, new Source('', 'test')));
-
         $checker->setSandboxed(true);
         try {
-            $this->expectException(SecurityError::class);
-            $this->expectExceptionMessage('cannot be rendered while the sandbox is enabled');
-            $macros->getMacroNamespace()->call('show', ['x'], [], 1, new Source('', 'test'));
+            return $callback();
         } finally {
             $checker->setSandboxed(false);
         }
@@ -332,7 +550,7 @@ class CompileTimeSourcePolicyTest extends TestCase
         $env = new Environment(new CompileTimeSourcePolicyLoader(self::TEMPLATES), ['cache' => false, 'autoescape' => false]);
         if ($sandbox) {
             $policy ??= new CompileTimeSourcePolicyTestPolicy();
-            $env->addExtension(new SandboxExtension(new SecurityPolicy(['do', 'include', 'block'], ['upper', 'join', 'map'], [], [], ['include']), $global, $optIn ? $policy : new CompileTimeSourcePolicyLegacyPolicy($policy)));
+            $env->addExtension(new SandboxExtension(new SecurityPolicy(['do', 'include', 'block', 'import', 'extends', 'embed', 'macro'], ['upper', 'join', 'map'], [], [], ['include', 'block', 'parent']), $global, $optIn ? $policy : new CompileTimeSourcePolicyLegacyPolicy($policy)));
         }
 
         return $env;
@@ -354,6 +572,7 @@ class CompileTimeSourcePolicyTest extends TestCase
 class CompileTimeSourcePolicyProbe
 {
     public $secret = 'secret';
+    public $parent = 'trusted/base';
 
     public function getSecret(): string
     {

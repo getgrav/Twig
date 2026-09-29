@@ -161,8 +161,8 @@ final class SandboxNodeVisitor implements NodeVisitorInterface
     public function leaveNode(Node $node, Environment $env): ?Node
     {
         // GRAV FORK: compile-time source sandboxing, see CompileTimeSourcePolicyInterface.
-        // A trusted module only gets the checker and a guard that refuses to render it
-        // while the sandbox is on. Keep it paired with the block in enterNode(): without
+        // A trusted module only gets the checker and a guard that hands a render while the
+        // sandbox is on over to the checked variant, or throws. Keep it paired with the block in enterNode(): without
         // it a trusted module gets another module's CheckSecurityNode instead of the guard.
         if ($this->trusted) {
             if ($node instanceof ArrowFunctionExpression) {

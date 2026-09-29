@@ -329,7 +329,8 @@ class Environment
         // GRAV FORK: compile-time source sandboxing (see CompileTimeSourcePolicyInterface). A template
         // loaded while the runtime sandbox flag is on gets its own, fully checked class, and opted-in
         // classes never reuse ones compiled without the opt-in. Empty unless opted in. If lost, a trusted
-        // class is reused inside sandboxed renders, where TrustedTemplateGuardNode refuses to run it.
+        // class is reused inside sandboxed renders and has no checked variant to hand over to, so
+        // TrustedTemplateGuardNode throws.
         $suffix = $this->hasExtension(Extension\SandboxExtension::class) ? $this->getExtension(Extension\SandboxExtension::class)->getChecker()->getTemplateClassSuffix() : '';
 
         return '__TwigTemplate_'.hash(\PHP_VERSION_ID < 80100 ? 'sha256' : 'xxh128', $key).$suffix.(null === $index ? '' : '___'.$index);

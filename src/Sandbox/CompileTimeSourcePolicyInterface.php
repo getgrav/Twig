@@ -36,8 +36,9 @@ use Twig\Source;
  *
  * Templates loaded while the runtime flag is on get their own compiled class
  * (see Environment::getTemplateClass()), so they are never trusted. A trusted
- * template that was loaded earlier refuses to render while the flag is on (see
- * TrustedTemplateGuardNode) instead of running unchecked.
+ * template that was loaded earlier hands a render while the flag is on over to
+ * that fully checked class instead of running unchecked, and throws where it
+ * cannot (see TrustedTemplateGuardNode).
  *
  * Grav depends on this: Grav\Common\Twig\Sandbox\GravSourcePolicy implements it
  * so theme and plugin templates on disk skip the thousands of sandbox calls per
