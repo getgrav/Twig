@@ -100,6 +100,22 @@ class EnvironmentTest extends TestCase
      * @group legacy
      */
     #[Group('legacy')]
+    public function testResolveTemplateRejectsTemplateFromAnotherEnvironment(): void
+    {
+        $foreign = new Environment(new ArrayLoader(['index' => 'foreign']));
+        $twig = new Environment(new ArrayLoader());
+
+        $this->expectDeprecation('Since twig/twig 3.9: Passing a "Twig\Template" instance to "Twig\Environment::resolveTemplate" is deprecated.');
+        $this->expectException(RuntimeError::class);
+        $this->expectExceptionMessage('A "Twig\Template" can only be used with the "Twig\Environment" that created it.');
+
+        $twig->resolveTemplate([$foreign->load('index')->unwrap($foreign)]);
+    }
+
+    /**
+     * @group legacy
+     */
+    #[Group('legacy')]
     public function testCloningIsDeprecated(): void
     {
         $this->expectDeprecation('Since twig/twig 3.30: Cloning a "Twig\Environment" instance is deprecated and will throw in Twig 4.0; build a new environment instead.');
@@ -597,6 +613,101 @@ EOF
         } finally {
             FilesystemHelper::removeDir($dir);
         }
+    }
+
+    public function testLoadReusesTheWrapperOfAnAlreadyLoadedTemplate(): void
+    {
+        $twig = new Environment(new ArrayLoader(['index.twig' => 'x']));
+
+        $this->assertSame($twig->load('index.twig'), $twig->load('index.twig'));
+    }
+
+    public function testRepeatedlyRemovingACacheDoesNotAccumulateWrappers(): void
+    {
+        $dir = sys_get_temp_dir().'/twig-wrapper-growth-test';
+        if (is_dir($dir)) {
+            FilesystemHelper::removeDir($dir);
+        }
+        mkdir($dir.'/cache', 0777, true);
+        file_put_contents($dir.'/index.twig', 'x');
+
+        try {
+            $twig = new Environment(new FilesystemLoader($dir), ['cache' => $dir.'/cache', 'auto_reload' => false]);
+            for ($i = 0; $i < 10; ++$i) {
+                $twig->load('index.twig');
+                $twig->removeCache('index.twig');
+            }
+            $twig->load('index.twig');
+
+            $wrappers = (new \ReflectionObject($twig))->getProperty('loadedWrappers')->getValue($twig);
+            $this->assertCount(1, $wrappers);
+        } finally {
+            FilesystemHelper::removeDir($dir);
+        }
+    }
+
+    public function testLoadFollowsALoaderThatResolvesANameDifferently(): void
+    {
+        $dir = sys_get_temp_dir().'/twig-loader-change-test';
+        if (is_dir($dir)) {
+            FilesystemHelper::removeDir($dir);
+        }
+        mkdir($dir.'/a', 0777, true);
+        mkdir($dir.'/b', 0777, true);
+        file_put_contents($dir.'/a/index.twig', 'a');
+        file_put_contents($dir.'/b/index.twig', 'b');
+
+        try {
+            $loader = new FilesystemLoader([$dir.'/a']);
+            $twig = new Environment($loader, ['cache' => false]);
+
+            $this->assertSame('a', $twig->load('index.twig')->render([]));
+
+            // the loader now resolves the same name to another file
+            $loader->prependPath($dir.'/b');
+
+            $this->assertSame('b', $twig->load('index.twig')->render([]));
+        } finally {
+            FilesystemHelper::removeDir($dir);
+        }
+    }
+
+    public function testTemplateClassFollowsExtensionsAddedAfterItWasComputed(): void
+    {
+        $twig = new Environment(new ArrayLoader(['index' => '']));
+        $cls = $twig->getTemplateClass('index');
+
+        $twig->addExtension(new EnvironmentTest_Extension_WithGlobals());
+        $this->assertNotSame($cls, $cls = $twig->getTemplateClass('index'));
+
+        $twig->setExtensions([new EnvironmentTest_ExtensionWithoutRuntime()]);
+        $this->assertNotSame($cls, $cls = $twig->getTemplateClass('index'));
+
+        $other = new Environment(new ArrayLoader(['index' => '']));
+        $other->setExtensions([new EnvironmentTest_Extension_WithGlobals(), new EnvironmentTest_ExtensionWithoutRuntime()]);
+        $this->assertSame($cls, $other->getTemplateClass('index'));
+    }
+
+    public function testTemplateClassFollowsDebugAndStrictVariablesChanges(): void
+    {
+        $twig = new Environment(new ArrayLoader(['index' => '']));
+        $cls = $twig->getTemplateClass('index');
+
+        $twig->enableDebug();
+        $debugCls = $twig->getTemplateClass('index');
+        $this->assertNotSame($cls, $debugCls);
+        $this->assertSame((new Environment(new ArrayLoader(['index' => '']), ['debug' => true]))->getTemplateClass('index'), $debugCls);
+
+        $twig->disableDebug();
+        $this->assertSame($cls, $twig->getTemplateClass('index'));
+
+        $twig->enableStrictVariables();
+        $strictCls = $twig->getTemplateClass('index');
+        $this->assertNotSame($cls, $strictCls);
+        $this->assertSame((new Environment(new ArrayLoader(['index' => '']), ['strict_variables' => true]))->getTemplateClass('index'), $strictCls);
+
+        $twig->disableStrictVariables();
+        $this->assertSame($cls, $twig->getTemplateClass('index'));
     }
 }
 

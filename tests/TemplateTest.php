@@ -353,6 +353,36 @@ class TemplateTest extends TestCase
     }
 
     /**
+     * @dataProvider getStringableKeySubclassArrayAccessContainers
+     */
+    #[DataProvider('getStringableKeySubclassArrayAccessContainers')]
+    public function testStringableKeyIsCoercedForSubclassesOfInternalArrayAccess(bool $strict, bool $sandboxed, \ArrayAccess $data): void
+    {
+        $twig = new Environment(new ArrayLoader(['index' => '{{ data[key] }}']), [
+            'strict_variables' => $strict,
+            'autoescape' => false,
+        ]);
+        $key = new TemplateStringableKey();
+        if ($sandboxed) {
+            // subclasses are not part of CoreExtension::ARRAY_LIKE_CLASSES, so the sandbox checks the key as a property
+            $twig->addExtension(new SandboxExtension(new SecurityPolicy([], [], [$key::class => ['__toString']], [$data::class => ['string']], []), true));
+        }
+
+        $this->assertSame('value', $twig->render('index', ['data' => $data, 'key' => $key]));
+        $this->assertSame(1, $key->toStringCalls);
+    }
+
+    public static function getStringableKeySubclassArrayAccessContainers(): iterable
+    {
+        foreach (['lax' => false, 'strict' => true] as $mode => $strict) {
+            foreach (['unsandboxed' => false, 'sandboxed' => true] as $sandboxMode => $sandboxed) {
+                yield $mode.' '.$sandboxMode.' ArrayObject subclass' => [$strict, $sandboxed, new TemplateArrayObjectSubclass(['string' => 'value'])];
+                yield $mode.' '.$sandboxMode.' ArrayIterator subclass' => [$strict, $sandboxed, new TemplateArrayIteratorSubclass(['string' => 'value'])];
+            }
+        }
+    }
+
+    /**
      * @dataProvider getStrictVariablesModes
      */
     #[DataProvider('getStrictVariablesModes')]
@@ -768,6 +798,34 @@ class TemplateTest extends TestCase
         // 0 should be in the method cache now, so this should fail
         $this->assertNull(CoreExtension::getAttribute($twig, $template->getSourceContext(), $getIsObject, 0));
     }
+
+    public function testRepeatedObjectAttributeLookupsResolveConsistently(): void
+    {
+        $twig = new Environment(new ArrayLoader(), ['strict_variables' => true]);
+        $source = new Source('', 'index.twig');
+        $object = new TemplateAttributeResolution();
+
+        for ($i = 0; $i < 2; ++$i) {
+            $this->assertSame('constant', CoreExtension::getAttribute($twig, $source, $object, 'NAME'));
+            $this->assertTrue(CoreExtension::getAttribute($twig, $source, $object, 'NAME', [], Template::ANY_CALL, true));
+            $this->assertSame('getter', CoreExtension::getAttribute($twig, $source, $object, 'hidden'));
+            $this->assertTrue(CoreExtension::getAttribute($twig, $source, $object, 'hidden', [], Template::ANY_CALL, true));
+            $this->assertFalse(CoreExtension::getAttribute($twig, $source, $object, 'secret', [], Template::ANY_CALL, true));
+        }
+    }
+}
+
+class TemplateAttributeResolution
+{
+    public const NAME = 'constant';
+
+    private $hidden = 'property';
+    private $secret = 'property';
+
+    public function getHidden()
+    {
+        return 'getter';
+    }
 }
 
 class TemplateForTest extends Template
@@ -827,6 +885,14 @@ class TemplateForTest extends Template
     public function block_name($context, array $blocks = []): void
     {
     }
+}
+
+final class TemplateArrayObjectSubclass extends \ArrayObject
+{
+}
+
+final class TemplateArrayIteratorSubclass extends \ArrayIterator
+{
 }
 
 final class TemplateStringableKey implements \Stringable

@@ -30,6 +30,7 @@ use Twig\ExpressionParser\InfixAssociativity;
 use Twig\ExpressionParser\PrecedenceChange;
 use Twig\ExpressionParser\Prefix\GroupingExpressionParser;
 use Twig\ExpressionParser\Prefix\LiteralExpressionParser;
+use Twig\ExpressionParser\Prefix\SpreadExpressionParser;
 use Twig\ExpressionParser\Prefix\UnaryOperatorExpressionParser;
 use Twig\MacroNamespace;
 use Twig\Markup;
@@ -84,7 +85,6 @@ use Twig\Node\Expression\Test\TrueTest;
 use Twig\Node\Expression\Unary\NegUnary;
 use Twig\Node\Expression\Unary\NotUnary;
 use Twig\Node\Expression\Unary\PosUnary;
-use Twig\Node\Expression\Unary\SpreadUnary;
 use Twig\Node\Node;
 use Twig\NodeVisitor\CorrectnessNodeVisitor;
 use Twig\Parser;
@@ -130,14 +130,6 @@ final class CoreExtension extends AbstractExtension
         'SplQueue',
         'SplStack',
         'WeakMap',
-    ];
-    /**
-     * @internal
-     */
-    public const STRINGABLE_KEY_ARRAY_ACCESS_CLASSES = [
-        'ArrayIterator',
-        'ArrayObject',
-        'RecursiveArrayIterator',
     ];
 
     private const DEFAULT_TRIM_CHARS = " \t\n\r\0\x0B";
@@ -349,7 +341,7 @@ final class CoreExtension extends AbstractExtension
         return [
             // unary operators
             new UnaryOperatorExpressionParser(NotUnary::class, 'not', 50, new PrecedenceChange('twig/twig', '3.15', 70)),
-            new UnaryOperatorExpressionParser(SpreadUnary::class, '...', 512, description: 'Spread operator', operandPrecedence: 0),
+            new SpreadExpressionParser(),
             new UnaryOperatorExpressionParser(NegUnary::class, '-', 500),
             new UnaryOperatorExpressionParser(PosUnary::class, '+', 500),
 
@@ -1271,19 +1263,19 @@ final class CoreExtension extends AbstractExtension
     }
 
     /**
-     * Unicode version of str_split(): splits at every position except after the start and before the end.
+     * Unicode version of str_split(), an empty string giving a single empty character.
      *
-     * @return list<string>
+     * @return non-empty-list<string>
      *
      * @throws RuntimeError When the string cannot be split into characters
      */
     private static function splitIntoCharacters(string $string, string $name): array
     {
-        if (false === $characters = preg_split('/(?<!^)(?!$)/u', $string)) {
+        if (false === preg_match_all('/./us', $string, $matches)) {
             throw new RuntimeError(\sprintf('Unable to split the string passed to "%s" into characters: %s.', $name, preg_last_error_msg()));
         }
 
-        return $characters;
+        return $matches[0] ?: [''];
     }
 
     /**
@@ -1769,6 +1761,10 @@ final class CoreExtension extends AbstractExtension
         if (Template::METHOD_CALL !== $type) {
             $arrayItem = \is_bool($item) || \is_float($item) ? (int) $item : $item;
 
+            if ($arrayItem instanceof \Stringable && ($object instanceof \ArrayObject || $object instanceof \ArrayIterator)) {
+                $arrayItem = (string) $arrayItem;
+            }
+
             if ($sandboxed && $object instanceof \ArrayAccess && !\in_array($object::class, self::ARRAY_LIKE_CLASSES, true)) {
                 try {
                     $env->getExtension(SandboxExtension::class)->getChecker()->checkPropertyAllowed($object, $arrayItem, $lineno, $source);
@@ -1779,10 +1775,6 @@ final class CoreExtension extends AbstractExtension
                     $item = (string) $item;
                     goto methodCheck;
                 }
-            }
-
-            if ($object instanceof \ArrayAccess && $arrayItem instanceof \Stringable && \in_array($object::class, self::STRINGABLE_KEY_ARRAY_ACCESS_CLASSES, true)) {
-                $arrayItem = (string) $arrayItem;
             }
 
             if (match (true) {
@@ -1875,7 +1867,7 @@ final class CoreExtension extends AbstractExtension
             static $propertyCheckers = [];
 
             if (isset($object->$item)
-                || ($propertyCheckers[$object::class][$item] ??= self::getPropertyChecker($object::class, $item))($object, $item)
+                || (($propertyChecker = $propertyCheckers[$object::class][$item] ??= self::getPropertyChecker($object::class, $item)) && $propertyChecker($object, $item))
             ) {
                 if ($isDefinedTest) {
                     return true;
@@ -1892,7 +1884,9 @@ final class CoreExtension extends AbstractExtension
                 return ((array) $object)[$item];
             }
 
-            if (\defined($object::class.'::'.$item)) {
+            static $constants = [];
+
+            if ($constants[$object::class][$item] ??= \defined($object::class.'::'.$item)) {
                 if ($isDefinedTest) {
                     return true;
                 }
@@ -2274,7 +2268,7 @@ final class CoreExtension extends AbstractExtension
         return new GetAttrExpression($args[0], $args[1], $args[2] ?? null, Template::ANY_CALL, $line);
     }
 
-    private static function getPropertyChecker(string $class, string $property): \Closure
+    private static function getPropertyChecker(string $class, string $property): \Closure|false
     {
         static $classReflectors = [];
 
@@ -2289,9 +2283,7 @@ final class CoreExtension extends AbstractExtension
         $property = $class->getProperty($property);
 
         if (!$property->isPublic() || $property->isStatic()) {
-            static $false;
-
-            return $false ??= static fn () => false;
+            return false;
         }
 
         return static fn ($object) => $property->isInitialized($object);

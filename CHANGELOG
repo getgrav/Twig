@@ -1,9 +1,34 @@
-# 3.30.0 (2026-XX-XX)
+# 3.30.1 (2026-XX-XX)
 
+ * Fix the `loop` variable being undefined when used in the sequence of a nested `for` tag
+ * Reject a deprecated `Template` instance created by another environment in `Environment::resolveTemplate()`
+ * Fix a compilation error inside an `autoescape` tag leaking its escaping strategy into the next compiled template
+ * Fix the non-selected branch of a `guard` tag registering its parent, blocks, and macros
+ * Speed up reading object attributes backed by getters or class constants
+ * Fix the sandbox not reporting the line of a rejected `guard` tag
+ * Fix the spread operator compiling to invalid PHP outside sequences, mappings, and call arguments
+ * Fix the `deprecated` tag generating invalid PHP for an integer message
+
+# 3.30.0 (2026-09-25)
+
+ * Fix `split`, `random`, and `shuffle` merging a trailing newline into the last character of a string
+ * Speed up splitting a string into characters in `split`, `random`, and `shuffle`
+ * Speed up escaping by fetching the escaper runtime once per template
+ * Speed up adding extensions to an environment
+ * Fix the escaping safe analysis retaining every compiled template node for the lifetime of the environment
+ * Speed up loading a template that the environment has already loaded
+ * Speed up rendering by compiling a cheaper generator guard into templates
+ * Speed up compiling filter, function, and test calls
+ * Fix `IntlExtension` letting the pattern derived from a date formatter prototype override an explicit locale
+ * Fix `IntlExtension` not honoring the locale of a date formatter prototype configured with no date and time styles
+ * Speed up macro calls
+ * Fix `TemplateWrapper::unwrap()` failing when called without arguments, which is now deprecated
+ * Add `TemplateWrapper::getDefaultEscapeStrategy()` to know the escaping strategy a template was compiled with
  * Report a clear error when `random`, `reverse`, `shuffle`, and `split` receive a string that is not valid UTF-8
  * Fix the deprecation about omitting parentheses when calling a macro being reported twice for the same call
  * Add the macro name to the deprecation about omitting parentheses when calling a macro
  * Deprecate cloning a `Twig\Environment` instance
+ * Fix array access with a `Stringable` key on subclasses of `ArrayObject` and `ArrayIterator`
 
 # 3.29.0 (2026-09-18)
 

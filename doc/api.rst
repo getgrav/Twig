@@ -48,6 +48,22 @@ returns a ``\Twig\TemplateWrapper`` instance::
 
     $template = $twig->load('index.html.twig');
 
+.. versionadded:: 3.30
+
+    The ``TemplateWrapper::getDefaultEscapeStrategy()`` method was introduced in
+    Twig 3.30.
+
+The wrapper tells which escaping strategy the body of the template was compiled
+with (``false`` when the template is not autoescaped)::
+
+    $strategy = $template->getDefaultEscapeStrategy();
+
+.. caution::
+
+    This describes the template's own source, not its output: ``autoescape``,
+    ``escape``, and anything rendered by a parent, embedded, or included
+    template can use another strategy.
+
 Rendering Templates
 -------------------
 
@@ -416,8 +432,8 @@ Twig comes bundled with the following extensions:
 * ``\Twig\Extension\EscaperExtension``: Adds automatic output-escaping and the
   possibility to escape/unescape blocks of code.
 
-* ``\Twig\Extension\SandboxExtension``: Adds a sandbox mode to the default Twig
-  environment, making it safe to evaluate untrusted code.
+* ``\Twig\Extension\SandboxExtension``: Enforces the sandbox security policy;
+  use the ``Twig\Sandbox\Sandbox`` class to evaluate untrusted code.
 
 * ``\Twig\Extension\ProfilerExtension``: Enables the built-in Twig profiler.
 
@@ -564,7 +580,8 @@ The escaping rules are implemented as follows:
 Sandbox Extension
 ~~~~~~~~~~~~~~~~~
 
-The ``sandbox`` extension can be used to evaluate untrusted code. Read more
+To evaluate untrusted code, use the ``Twig\Sandbox\Sandbox`` class, which
+registers the ``sandbox`` extension on a dedicated environment. Read more
 about it in the :doc:`sandbox` chapter.
 
 Profiler Extension
