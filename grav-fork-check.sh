@@ -13,7 +13,7 @@ UPSTREAM_BRANCH="${UPSTREAM_BRANCH:-upstream/3.x}"
 
 fail=0
 
-if [ ! -d "$FORK/.git" ]; then
+if ! git -C "$FORK" rev-parse --git-dir >/dev/null 2>&1; then
   echo "!! not a git repo: $FORK" >&2
   exit 2
 fi
