@@ -12,12 +12,18 @@
 namespace Twig\NodeVisitor;
 
 use Twig\Environment;
+use Twig\Extension\SandboxExtension;
 use Twig\Node\CheckSecurityCallNode;
 use Twig\Node\CheckSecurityNode;
 use Twig\Node\CheckToStringNode;
 use Twig\Node\CoercesChildrenToStringInterface;
 use Twig\Node\Expression\ArrayExpression;
+use Twig\Node\Expression\ArrowFunctionExpression;
+use Twig\Node\Expression\Binary\HasEveryBinary;
+use Twig\Node\Expression\Binary\HasSomeBinary;
+use Twig\Node\Expression\Binary\ObjectDestructuringSetBinary;
 use Twig\Node\Expression\Binary\RangeBinary;
+use Twig\Node\Expression\CallExpression;
 use Twig\Node\Expression\FilterExpression;
 use Twig\Node\Expression\FunctionExpression;
 use Twig\Node\Expression\GetAttrExpression;
@@ -28,6 +34,8 @@ use Twig\Node\Expression\Variable\ContextVariable;
 use Twig\Node\ModuleNode;
 use Twig\Node\Node;
 use Twig\Node\Nodes;
+use Twig\Node\SandboxNode;
+use Twig\Node\TrustedTemplateGuardNode;
 use Twig\TokenParser\TokenParserInterface;
 use Twig\TwigCallableInterface;
 use Twig\Util\CallableParameters;
@@ -48,9 +56,38 @@ final class SandboxNodeVisitor implements NodeVisitorInterface
     private $functions;
     /** @var array<string, int> */
     private $tests;
+    // GRAV FORK: compile-time source sandboxing, see CompileTimeSourcePolicyInterface.
+    private bool $trusted = false;
+    private int $arrowDepth = 0;
 
     public function enterNode(Node $node, Environment $env): Node
     {
+        // GRAV FORK: compile-time source sandboxing, see CompileTimeSourcePolicyInterface.
+        // A trusted module gets no instrumentation, and the nodes that compile a sandbox
+        // check on their own (they test for the SandboxExtension) are told to skip it. A node
+        // this misses keeps its check, which is only slower. Remove this block and every
+        // template is instrumented again, as upstream does.
+        // Arrow function bodies are the exception: a closure can be handed to a template
+        // rendered inside the sandbox and run there, past the guard, so they keep the
+        // per-value checks (falling through to the wrapping below; tags, filters and
+        // functions are still only checked when their own template renders, as upstream).
+        if ($node instanceof ModuleNode) {
+            $this->trusted = $this->isTrustedModule($node, $env);
+            $this->arrowDepth = 0;
+        }
+        if ($this->trusted) {
+            if ($node instanceof ArrowFunctionExpression) {
+                ++$this->arrowDepth;
+            }
+            if (0 === $this->arrowDepth) {
+                if ($node instanceof GetAttrExpression || $node instanceof CallExpression || $node instanceof ObjectDestructuringSetBinary || $node instanceof HasSomeBinary || $node instanceof HasEveryBinary) {
+                    $node->setAttribute('sandbox_trusted', true);
+                }
+
+                return $node;
+            }
+        }
+
         if ($node instanceof ModuleNode) {
             $this->inAModule = true;
             $this->tags = [];
@@ -96,7 +133,8 @@ final class SandboxNodeVisitor implements NodeVisitorInterface
 
         // wrap children that the node itself will string-coerce at runtime;
         // applies to ModuleNode (`parent` slot for {% extends %}) too
-        if ($this->inAModule && $node instanceof CoercesChildrenToStringInterface) {
+        // GRAV FORK: `|| $this->trusted` wraps inside the arrow function bodies of a trusted module, see above.
+        if (($this->inAModule || $this->trusted) && $node instanceof CoercesChildrenToStringInterface) {
             $params = CallableParameters::fromNode($node, $env);
             foreach ($node->getStringCoercedChildNames() as $childName) {
                 // For Filter/Function/Test calls, consult the PHP callable
@@ -122,6 +160,24 @@ final class SandboxNodeVisitor implements NodeVisitorInterface
 
     public function leaveNode(Node $node, Environment $env): ?Node
     {
+        // GRAV FORK: compile-time source sandboxing, see CompileTimeSourcePolicyInterface.
+        // A trusted module only gets the checker and a guard that hands a render while the
+        // sandbox is on over to the checked variant, or throws. Keep it paired with the block in enterNode(): without
+        // it a trusted module gets another module's CheckSecurityNode instead of the guard.
+        if ($this->trusted) {
+            if ($node instanceof ArrowFunctionExpression) {
+                --$this->arrowDepth;
+            }
+            if ($node instanceof ModuleNode) {
+                $this->trusted = false;
+
+                $node->setNode('constructor_start', new Nodes([new CheckSecurityCallNode(), $node->getNode('constructor_start')]));
+                $node->setNode('class_end', new Nodes([new TrustedTemplateGuardNode(), $node->getNode('class_end')]));
+            }
+
+            return $node;
+        }
+
         if ($node instanceof ModuleNode) {
             $this->inAModule = false;
 
@@ -209,6 +265,32 @@ final class SandboxNodeVisitor implements NodeVisitorInterface
         } elseif ($expr instanceof FilterExpression || $expr instanceof FunctionExpression) {
             $node->setNode($name, new CheckToStringNode($expr));
         }
+    }
+
+    /**
+     * GRAV FORK: compile-time source sandboxing, see CompileTimeSourcePolicyInterface.
+     */
+    private function isTrustedModule(ModuleNode $node, Environment $env): bool
+    {
+        $source = $node->getSourceContext();
+        if (null === $source || !$env->hasExtension(SandboxExtension::class) || !$env->getExtension(SandboxExtension::class)->getChecker()->isTrustedAtCompileTime($source)) {
+            return false;
+        }
+
+        // The body of a sandbox tag runs with the runtime flag on, so the template
+        // using it keeps its checks. Embedded templates are decided on their own.
+        return !self::containsSandboxTag($node);
+    }
+
+    private static function containsSandboxTag(Node $node): bool
+    {
+        foreach ($node as $child) {
+            if ($child instanceof SandboxNode || self::containsSandboxTag($child)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function isTagAlwaysAllowedInSandbox(Environment $env, string $name): bool

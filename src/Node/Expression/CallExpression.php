@@ -104,7 +104,13 @@ abstract class CallExpression extends AbstractExpression
             if (!$first) {
                 $compiler->raw(', ');
             }
-            $compiler->raw('$this->env->hasExtension(\Twig\Extension\SandboxExtension::class) && $this->env->getExtension(\Twig\Extension\SandboxExtension::class)->getChecker()->isSandboxed($this->source)');
+            // GRAV FORK: compile-time source sandboxing (see CompileTimeSourcePolicyInterface), a trusted
+            // template is never sandboxed. If lost, trusted templates keep the check (slower, still safe).
+            if ($this->hasAttribute('sandbox_trusted')) {
+                $compiler->raw('false');
+            } else {
+                $compiler->raw('$this->env->hasExtension(\Twig\Extension\SandboxExtension::class) && $this->env->getExtension(\Twig\Extension\SandboxExtension::class)->getChecker()->isSandboxed($this->source)');
+            }
             $first = false;
         }
 

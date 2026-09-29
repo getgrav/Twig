@@ -13,6 +13,7 @@
 namespace Twig;
 
 use Twig\Error\Error;
+use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
 
 /**
@@ -101,7 +102,12 @@ abstract class Template
         // bypass the allow-list when getParent() is reached before the first
         // ensureSecurityChecked() call on this template (e.g. via a macro call
         // resolved against a parent, or yieldBlock() into a pre-warmed instance).
-        $this->ensureSecurityChecked();
+        // GRAV FORK: compile-time source sandboxing, see ensureSecurityCheckedOrHandOver(). A parent
+        // already resolved above is returned as is: that runs no template code, and anything
+        // run on it hands over in turn.
+        if (null !== $template = $this->ensureSecurityCheckedOrHandOver()) {
+            return $template->getParent($context);
+        }
 
         try {
             $parent = $this->doGetParent($context);
@@ -453,11 +459,24 @@ abstract class Template
      */
     public function yield(array $context, array $blocks = []): iterable
     {
+        // GRAV FORK: compile-time source sandboxing, see ensureSecurityCheckedOrHandOver(). It runs the
+        // security check upstream runs in the try block below, before $blocks is merged, so a
+        // checked variant gets only the caller's blocks.
+        try {
+            $template = $this->ensureSecurityCheckedOrHandOver();
+        } catch (\Throwable $e) {
+            $this->handleException($e);
+        }
+        if (null !== $template) {
+            yield from $template->yield($context, $blocks);
+
+            return;
+        }
+
         $context += $this->env->getGlobals();
         $blocks = array_merge($this->blocks, $blocks);
 
         try {
-            $this->ensureSecurityChecked();
             yield from $this->doDisplay($context, $blocks);
         } catch (\Throwable $e) {
             $this->handleException($e);
@@ -489,7 +508,13 @@ abstract class Template
 
         if (null !== $template) {
             try {
-                $template->ensureSecurityChecked();
+                // GRAV FORK: compile-time source sandboxing, see ensureSecurityCheckedOrHandOver(). In
+                // place of upstream's ensureSecurityChecked(). Both compiled classes name a block's
+                // method after the block, so the checked variant has the same $block method; it
+                // runs its own check and never hands over again.
+                if (null !== $checked = $template->ensureSecurityCheckedOrHandOver()) {
+                    ($template = $checked)->ensureSecurityChecked();
+                }
                 yield from $template->$block($context, $blocks);
             } catch (\Throwable $e) {
                 $template->handleException($e);
@@ -549,6 +574,64 @@ abstract class Template
      */
     public function ensureSecurityChecked(): void
     {
+    }
+
+    /**
+     * GRAV FORK: compile-time source sandboxing, see CompileTimeSourcePolicyInterface.
+     *
+     * Runs the sandbox security check, like ensureSecurityChecked(), and returns
+     * the instance to run in place of this one, or null to run this one. Only a
+     * template compiled as trusted overrides it (see TrustedTemplateGuardNode):
+     * entered while the sandbox is on, it returns the fully checked variant of the
+     * same template, so an instance loaded before the sandbox turned on renders the
+     * way upstream Twig renders it, with every runtime check, and throws when there
+     * is no such variant. yield(), yieldBlock(), getParent() and MacroNamespace call
+     * it where upstream calls ensureSecurityChecked(); every other entry point only
+     * dispatches to those. ensureSecurityChecked() still throws for a trusted
+     * template, so a path that does not hand over fails closed. If this is lost,
+     * those entry points throw instead of rendering with checks.
+     *
+     * @internal
+     */
+    public function ensureSecurityCheckedOrHandOver(): ?self
+    {
+        $this->ensureSecurityChecked();
+
+        return null;
+    }
+
+    /**
+     * GRAV FORK: compile-time source sandboxing, see ensureSecurityCheckedOrHandOver().
+     *
+     * Loads this template again, by name and embed index, while the runtime sandbox
+     * flag is on, so Environment::getTemplateClass() names the fully checked
+     * "_sandboxed" class. Returns null when the template cannot be loaded again by
+     * name (a string template, for instance) or when that would load this very
+     * class, and the caller throws. A checked variant never hands over again: it
+     * does not override ensureSecurityCheckedOrHandOver().
+     *
+     * @internal
+     */
+    protected function loadSecurityCheckedTemplate(): ?self
+    {
+        $name = $this->getTemplateName();
+        $index = null;
+        if (false !== $pos = strrpos(static::class, '___')) {
+            $index = (int) substr(static::class, $pos + 3);
+        }
+
+        try {
+            $class = $this->env->getTemplateClass($name);
+            if ($class.(null === $index ? '' : '___'.$index) === static::class) {
+                return null;
+            }
+
+            $template = $this->env->loadTemplate($class, $name, $index);
+        } catch (LoaderError) {
+            return null;
+        }
+
+        return $template instanceof static ? null : $template;
     }
 
     /**
