@@ -21,8 +21,10 @@ use Twig\Source;
  * compiles, that the template is trusted. A trusted template is compiled with no
  * sandbox instrumentation at all: no tag/filter/function check, no __toString()
  * check on prints, and plain attribute and method access, exactly as if the
- * SandboxExtension were not registered. Every other template is compiled the
- * upstream way and keeps its runtime checks.
+ * SandboxExtension were not registered. The exception is the body of an arrow
+ * function, which keeps its per-value checks because a closure can be handed
+ * to a template rendered inside the sandbox. Every other template is compiled
+ * the upstream way and keeps its runtime checks.
  *
  * A template is trusted only when all of these hold while it compiles:
  *

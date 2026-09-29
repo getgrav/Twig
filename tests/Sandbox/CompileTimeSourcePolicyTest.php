@@ -58,6 +58,9 @@ class CompileTimeSourcePolicyTest extends TestCase
         'trusted/sandboxed_include' => "{{ include('trusted/child', sandboxed = true) }}",
         'trusted/sandboxed_include_string' => '{{ include(template_from_string(code), sandboxed = true) }}',
         'trusted/sandboxed_include_wrapper' => '{{ include(wrapper, sandboxed = true) }}',
+        'trusted/sandboxed_include_arrow' => "{{ include('trusted/apply', {f: (x) => probe.secret ~ x, items: ['!']}, sandboxed = true) }}",
+        'trusted/sandboxed_include_arrow_string' => "{{ include('trusted/apply', {f: (x) => probe ~ x, items: ['!']}, sandboxed = true) }}",
+        'trusted/apply' => '{{ items|map(f)|join }}',
         'user/print' => '{{ probe }}',
         'user/attr' => '{{ probe.secret }}',
         'user/raw' => '{{ "<i>"|raw }}',
@@ -82,7 +85,7 @@ class CompileTimeSourcePolicyTest extends TestCase
     {
         $env = $this->env();
 
-        foreach (['trusted/print', 'trusted/attr', 'trusted/filters', 'trusted/destructuring', 'trusted/child', 'trusted/embed'] as $name) {
+        foreach (['trusted/print', 'trusted/attr', 'trusted/destructuring', 'trusted/child', 'trusted/embed'] as $name) {
             $code = $this->compile($env, $name);
             $this->assertStringNotContainsString('ensureToStringAllowed', $code, $name);
             $this->assertStringNotContainsString('checkSecurity', $code, $name);
@@ -147,11 +150,11 @@ class CompileTimeSourcePolicyTest extends TestCase
         foreach ([[true, 0], [false, null]] as [$optIn, $expected]) {
             $policy = new CompileTimeSourcePolicyTestPolicy();
             $env = $this->env($optIn, true, $policy);
-            foreach (['trusted/child', 'trusted/attr', 'trusted/filters'] as $name) {
+            foreach (['trusted/child', 'trusted/attr', 'trusted/destructuring'] as $name) {
                 $env->render($name, $context);
             }
             $policy->calls = 0;
-            foreach (['trusted/child', 'trusted/attr', 'trusted/filters'] as $name) {
+            foreach (['trusted/child', 'trusted/attr', 'trusted/destructuring'] as $name) {
                 $env->render($name, $context);
             }
 
@@ -271,6 +274,31 @@ class CompileTimeSourcePolicyTest extends TestCase
         $env->render('trusted/sandboxed_include_string', ['code' => '{{ probe }}', 'probe' => new CompileTimeSourcePolicyProbe()]);
     }
 
+    /**
+     * A closure is the one piece of a trusted template that can run inside a
+     * sandboxed render without going through the guard, so arrow function
+     * bodies keep their per-value checks, as upstream compiles them.
+     */
+    public function testArrowFunctionFromATrustedTemplateIsCheckedInsideTheSandbox(): void
+    {
+        $code = $this->compile($this->env(), 'trusted/sandboxed_include_arrow');
+        $this->assertStringContainsString('CoreExtension::getAttribute($this->env, $this->source, ($context["probe"] ?? null), "secret", [], "any", false, false, true, 1)', $code);
+        $this->assertStringContainsString('ensureToStringAllowed(($context["probe"] ?? null)', $this->compile($this->env(), 'trusted/sandboxed_include_arrow_string'));
+
+        foreach ([true, false] as $optIn) {
+            foreach (['trusted/sandboxed_include_arrow' => SecurityNotAllowedPropertyError::class, 'trusted/sandboxed_include_arrow_string' => SecurityNotAllowedMethodError::class] as $name => $error) {
+                try {
+                    $this->env($optIn)->render($name, ['probe' => new CompileTimeSourcePolicyProbe()]);
+                    $this->fail($name.' should have been blocked');
+                } catch (SecurityError $e) {
+                    $this->assertInstanceOf($error, $e, $name);
+                }
+            }
+        }
+
+        $this->assertSame('probe!', $this->env()->render('trusted/sandboxed_include_arrow_string', ['probe' => 'probe']));
+    }
+
     public function testPreloadedTrustedTemplateRefusesToRenderInsideTheSandbox(): void
     {
         $env = $this->env();
@@ -304,7 +332,7 @@ class CompileTimeSourcePolicyTest extends TestCase
         $env = new Environment(new CompileTimeSourcePolicyLoader(self::TEMPLATES), ['cache' => false, 'autoescape' => false]);
         if ($sandbox) {
             $policy ??= new CompileTimeSourcePolicyTestPolicy();
-            $env->addExtension(new SandboxExtension(new SecurityPolicy(['do', 'include', 'block'], ['upper', 'join', 'map']), $global, $optIn ? $policy : new CompileTimeSourcePolicyLegacyPolicy($policy)));
+            $env->addExtension(new SandboxExtension(new SecurityPolicy(['do', 'include', 'block'], ['upper', 'join', 'map'], [], [], ['include']), $global, $optIn ? $policy : new CompileTimeSourcePolicyLegacyPolicy($policy)));
         }
 
         return $env;

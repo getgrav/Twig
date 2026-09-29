@@ -18,6 +18,7 @@ use Twig\Node\CheckSecurityNode;
 use Twig\Node\CheckToStringNode;
 use Twig\Node\CoercesChildrenToStringInterface;
 use Twig\Node\Expression\ArrayExpression;
+use Twig\Node\Expression\ArrowFunctionExpression;
 use Twig\Node\Expression\Binary\HasEveryBinary;
 use Twig\Node\Expression\Binary\HasSomeBinary;
 use Twig\Node\Expression\Binary\ObjectDestructuringSetBinary;
@@ -57,6 +58,7 @@ final class SandboxNodeVisitor implements NodeVisitorInterface
     private $tests;
     // GRAV FORK: compile-time source sandboxing, see CompileTimeSourcePolicyInterface.
     private bool $trusted = false;
+    private int $arrowDepth = 0;
 
     public function enterNode(Node $node, Environment $env): Node
     {
@@ -65,15 +67,25 @@ final class SandboxNodeVisitor implements NodeVisitorInterface
         // check on their own (they test for the SandboxExtension) are told to skip it. A node
         // this misses keeps its check, which is only slower. Remove this block and every
         // template is instrumented again, as upstream does.
+        // Arrow function bodies are the exception: a closure can be handed to a template
+        // rendered inside the sandbox and run there, past the guard, so they keep the
+        // per-value checks (falling through to the wrapping below; tags, filters and
+        // functions are still only checked when their own template renders, as upstream).
         if ($node instanceof ModuleNode) {
             $this->trusted = $this->isTrustedModule($node, $env);
+            $this->arrowDepth = 0;
         }
         if ($this->trusted) {
-            if ($node instanceof GetAttrExpression || $node instanceof CallExpression || $node instanceof ObjectDestructuringSetBinary || $node instanceof HasSomeBinary || $node instanceof HasEveryBinary) {
-                $node->setAttribute('sandbox_trusted', true);
+            if ($node instanceof ArrowFunctionExpression) {
+                ++$this->arrowDepth;
             }
+            if (0 === $this->arrowDepth) {
+                if ($node instanceof GetAttrExpression || $node instanceof CallExpression || $node instanceof ObjectDestructuringSetBinary || $node instanceof HasSomeBinary || $node instanceof HasEveryBinary) {
+                    $node->setAttribute('sandbox_trusted', true);
+                }
 
-            return $node;
+                return $node;
+            }
         }
 
         if ($node instanceof ModuleNode) {
@@ -121,7 +133,8 @@ final class SandboxNodeVisitor implements NodeVisitorInterface
 
         // wrap children that the node itself will string-coerce at runtime;
         // applies to ModuleNode (`parent` slot for {% extends %}) too
-        if ($this->inAModule && $node instanceof CoercesChildrenToStringInterface) {
+        // GRAV FORK: `|| $this->trusted` wraps inside the arrow function bodies of a trusted module, see above.
+        if (($this->inAModule || $this->trusted) && $node instanceof CoercesChildrenToStringInterface) {
             $params = CallableParameters::fromNode($node, $env);
             foreach ($node->getStringCoercedChildNames() as $childName) {
                 // For Filter/Function/Test calls, consult the PHP callable
@@ -152,6 +165,9 @@ final class SandboxNodeVisitor implements NodeVisitorInterface
         // while the sandbox is on. Keep it paired with the block in enterNode(): without
         // it a trusted module gets another module's CheckSecurityNode instead of the guard.
         if ($this->trusted) {
+            if ($node instanceof ArrowFunctionExpression) {
+                --$this->arrowDepth;
+            }
             if ($node instanceof ModuleNode) {
                 $this->trusted = false;
 

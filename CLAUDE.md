@@ -32,6 +32,7 @@ How it works, hunk by hunk:
 
 - `SecurityChecker::isTrustedAtCompileTime()` is true only when the policy opted in, the sandbox is off (not global, runtime flag off), `enableSandbox()` is false and the policy's `isTrusted()` is true.
 - `SandboxNodeVisitor` asks that once per `ModuleNode` (and says no if the template contains a `{% sandbox %}` tag). A trusted module gets no `CheckSecurityNode`/`CheckToStringNode`, only `CheckSecurityCallNode` plus `TrustedTemplateGuardNode`, and every `GetAttrExpression`, `CallExpression`, `HasSomeBinary`, `HasEveryBinary` and `ObjectDestructuringSetBinary` in it gets a `sandbox_trusted` attribute, which those nodes read to compile their own check away.
+- Except inside arrow function bodies. A closure is the one piece of a trusted template that can run inside a sandboxed render without passing the guard (handed to a sandboxed include as a variable), so arrow bodies keep their `CheckToStringNode` wrapping and unmarked nodes, exactly as upstream compiles them.
 - `TrustedTemplateGuardNode` compiles `ensureSecurityChecked()` into a trusted template so it throws a `SecurityError` if it is rendered (or its blocks, macros or parent are) while the sandbox is on.
 - `Environment::getTemplateClass()` appends `SecurityChecker::getTemplateClassSuffix()`: `_sourced` normally, `_sandboxed` while the runtime flag is on, empty without the opt-in. So a template loaded inside a sandboxed render compiles into its own, fully checked class, and no class compiled without the opt-in is reused.
 
@@ -47,6 +48,7 @@ How each piece fails if a sync drops or mis-homes it:
 Keep it narrow:
 
 - Never trust anything while the runtime flag or global sandbox is on; that is what keeps `{% sandbox %}` and sandboxed includes fully checked.
+- Keep the arrow function exception. Without it, a closure from a theme template passed into a sandboxed include reads properties and calls `__toString()` unchecked (`testArrowFunctionFromATrustedTemplateIsCheckedInsideTheSandbox`).
 - A node without the attribute must compile the upstream check. The attribute only ever removes checks for nodes the visitor saw inside a trusted module.
 - The trust decision is baked into compiled templates, so a policy's `isTrusted()` may depend on the `Source` only. If Grav ever changes which names it sandboxes, the compiled Twig cache must be cleared.
 
