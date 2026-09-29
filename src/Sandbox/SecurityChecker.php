@@ -71,6 +71,40 @@ final class SecurityChecker
     }
 
     /**
+     * GRAV FORK: compile-time source sandboxing, see CompileTimeSourcePolicyInterface.
+     *
+     * Whether a template compiled from $source right now can be compiled with no
+     * sandbox instrumentation. Always false unless the source policy opted in, so
+     * upstream behaviour is unchanged by default. Remove it and SandboxNodeVisitor
+     * fails loudly (undefined method).
+     */
+    public function isTrustedAtCompileTime(Source $source): bool
+    {
+        return $this->sourcePolicy instanceof CompileTimeSourcePolicyInterface
+            && !$this->sandboxedGlobally
+            && !$this->sandboxed
+            && !$this->sourcePolicy->enableSandbox($source)
+            && $this->sourcePolicy->isTrusted($source);
+    }
+
+    /**
+     * GRAV FORK: compile-time source sandboxing, see CompileTimeSourcePolicyInterface.
+     *
+     * Appended to compiled class names by Environment::getTemplateClass(). With the
+     * opt-in, a template compiles differently depending on the runtime flag, so each
+     * mode needs its own class and cache entry, and neither may reuse a class
+     * compiled without the opt-in. Empty (upstream names) otherwise.
+     */
+    public function getTemplateClassSuffix(): string
+    {
+        if (!$this->sourcePolicy instanceof CompileTimeSourcePolicyInterface) {
+            return '';
+        }
+
+        return $this->sandboxedGlobally || $this->sandboxed ? '_sandboxed' : '_sourced';
+    }
+
+    /**
      * To be removed in 4.0: a sandbox policy is fixed at construction.
      */
     public function setSecurityPolicy(SecurityPolicyInterface $policy): void

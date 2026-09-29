@@ -326,7 +326,13 @@ class Environment
     {
         $key = ($this->hotCache[$name] ?? $this->getLoader()->getCacheKey($name)).($this->optionsHash ??= $this->getOptionsHash());
 
-        return '__TwigTemplate_'.hash(\PHP_VERSION_ID < 80100 ? 'sha256' : 'xxh128', $key).(null === $index ? '' : '___'.$index);
+        // GRAV FORK: compile-time source sandboxing (see CompileTimeSourcePolicyInterface). A template
+        // loaded while the runtime sandbox flag is on gets its own, fully checked class, and opted-in
+        // classes never reuse ones compiled without the opt-in. Empty unless opted in. If lost, a trusted
+        // class is reused inside sandboxed renders, where TrustedTemplateGuardNode refuses to run it.
+        $suffix = $this->hasExtension(Extension\SandboxExtension::class) ? $this->getExtension(Extension\SandboxExtension::class)->getChecker()->getTemplateClassSuffix() : '';
+
+        return '__TwigTemplate_'.hash(\PHP_VERSION_ID < 80100 ? 'sha256' : 'xxh128', $key).$suffix.(null === $index ? '' : '___'.$index);
     }
 
     /**

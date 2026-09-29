@@ -72,7 +72,9 @@ class ObjectDestructuringSetBinary extends AbstractBinary
             } else {
                 $compiler->raw($var);
             }
-            $compiler->raw(', ')->repr($mapping['property'])->raw(', [], \\Twig\\Template::ANY_CALL, false, false, ')->repr($compiler->getEnvironment()->hasExtension(SandboxExtension::class))->raw(', ')->repr($this->getNode('right')->getTemplateLine())->raw(')');
+            // GRAV FORK: compile-time source sandboxing (see CompileTimeSourcePolicyInterface), a trusted
+            // template reads properties unchecked. If lost, trusted templates keep the check (slower, still safe).
+            $compiler->raw(', ')->repr($mapping['property'])->raw(', [], \\Twig\\Template::ANY_CALL, false, false, ')->repr($compiler->getEnvironment()->hasExtension(SandboxExtension::class) && !$this->hasAttribute('sandbox_trusted'))->raw(', ')->repr($this->getNode('right')->getTemplateLine())->raw(')');
         }
         $compiler->raw('], '.$var.' = null][0]');
     }

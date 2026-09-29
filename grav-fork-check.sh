@@ -62,7 +62,7 @@ vendored=$(grep -m1 "public const VERSION " "$CORE/vendor/twig/twig/src/Environm
 echo "   vendored Twig: $vendored"
 echo "   (if that is not the fork commit you just pushed, run 'composer update twig/twig' in $CORE first)"
 echo
-for t in TwigForkPatchesTest TwigConditionalBlockTest DeferredExtensionTest TwigAutoescapeCompatTest TwigSetEscaperCompatTest; do
+for t in TwigForkPatchesTest TwigConditionalBlockTest DeferredExtensionTest TwigAutoescapeCompatTest TwigSetEscaperCompatTest Sandbox/SourceSandboxCompilationTest; do
   f="$CORE/tests/unit/Grav/Common/Twig/$t.php"
   if [ ! -f "$f" ]; then
     echo "   !! MISSING $t" >&2
