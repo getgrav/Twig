@@ -8,7 +8,7 @@ Grav pulls this fork by **branch, not tag**: core's `composer.json` says `"twig/
 
 ## The patches
 
-Run `./grav-fork-check.sh` for the live list. As of 2026-09-29 there are four, all in `src/` (the fourth spans several files):
+Run `./grav-fork-check.sh` for the live list. As of 2026-11-06 there are five, all in `src/` (the fourth spans several files):
 
 | File | Patch | How it fails if lost |
 | --- | --- | --- |
@@ -16,6 +16,7 @@ Run `./grav-fork-check.sh` for the live list. As of 2026-09-29 there are four, a
 | `NodeVisitor/CorrectnessNodeVisitor.php` | `isTransparentTag()` lets a `block` definition sit under an `if` | Loudly: `SyntaxError`, "A block definition cannot be nested under non-capturing nodes." |
 | `Parser.php` | `cleanupTransparentBodyNodes()` strips those nested block references from a child template's body | Quietly wrong output: the block renders where it was declared *as well as* through the parent. |
 | `Sandbox/CompileTimeSourcePolicyInterface.php` (new), `Sandbox/SecurityChecker.php`, `NodeVisitor/SandboxNodeVisitor.php`, `Node/TrustedTemplateGuardNode.php` (new), `Environment.php` (`getTemplateClass()`), `Template.php`, `MacroNamespace.php`, `Node/Expression/GetAttrExpression.php`, `CallExpression.php`, `Binary/HasSomeBinary.php`, `Binary/HasEveryBinary.php`, `Binary/ObjectDestructuringSetBinary.php` | Opt-in compile-time source sandboxing: a template whose source policy says it is trusted compiles with no sandbox instrumentation at all | Depends on which hunk goes; see below. |
+| `Extension/SandboxExtension.php` | The constructor's `SourcePolicyInterface` deprecation is skipped for a `CompileTimeSourcePolicyInterface`, so Grav's `GravSourcePolicy` doesn't log a deprecation on every request ([getgrav/grav#4387](https://github.com/getgrav/grav/issues/4387)) | Noisily, not unsafely: the policy is passed through either way, so only the deprecation notice comes back. Pinned by core's `TwigDeprecationsTest`. Keep it narrow: a plain `SourcePolicyInterface` must still trigger the deprecation. |
 
 Every patch is marked with a `GRAV FORK:` comment explaining what depends on it. **Keep that convention** — the check script greps for those markers, and a marker is the only thing telling the next person why an innocuous-looking line matters.
 

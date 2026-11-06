@@ -12,6 +12,7 @@
 namespace Twig\Extension;
 
 use Twig\NodeVisitor\SandboxNodeVisitor;
+use Twig\Sandbox\CompileTimeSourcePolicyInterface;
 use Twig\Sandbox\Sandbox;
 use Twig\Sandbox\SecurityChecker;
 use Twig\Sandbox\SecurityNotAllowedMethodError;
@@ -32,7 +33,10 @@ final class SandboxExtension extends AbstractExtension
 
     public function __construct(SecurityPolicyInterface $policy, $sandboxed = false, ?SourcePolicyInterface $sourcePolicy = null)
     {
-        if (null !== $sourcePolicy) {
+        // GRAV FORK: a CompileTimeSourcePolicyInterface is the fork's supported
+        // way to sandbox per source, so only the plain upstream interface gets
+        // the deprecation. The policy is passed on unchanged either way.
+        if (null !== $sourcePolicy && !$sourcePolicy instanceof CompileTimeSourcePolicyInterface) {
             trigger_deprecation('twig/twig', '3.27.0', 'The "%s" interface is deprecated with no replacement, do not pass an instance to "%s".', SourcePolicyInterface::class, self::class);
         }
 
